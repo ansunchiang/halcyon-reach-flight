@@ -1,19 +1,115 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Block Dodger</title>
-<style>
-  html, body { margin: 0; height: 100%; overflow: hidden; background: #11141b; }
-  #game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
-  /* Read aloud, never shown: the status line screen readers announce. */
-  #status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-</style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#122326">
+  <meta name="description" content="Halcyon Reach, an offline bush-plane flight game.">
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="./style.css">
+  <title>Halcyon Reach · Air Service</title>
 </head>
-<body>
-<canvas id="game" aria-label="Block Dodger: move the paddle left and right to dodge falling blocks and catch coins"></canvas>
-<p id="status" role="status" aria-live="polite"></p>
-<script type="module" src="./src/main.js"></script>
+<body data-screen="title">
+  <canvas id="view" aria-label="Halcyon Reach flight view"></canvas>
+  <canvas id="instruments" aria-hidden="true"></canvas>
+
+  <section id="hud" aria-label="Flight information" hidden>
+    <div class="flight-id"><span class="airmark">HR</span><div><b>HALCYON REACH</b><small>PETREL SK-2 <i></i> HR-PTL</small></div></div>
+    <aside class="objective" aria-label="Mission objective">
+      <div class="micro"><span id="mission-phase">ACTIVE SORTIE</span><span id="mission-clock">00:00</span></div>
+      <h2 id="mission-title"></h2>
+      <div class="objective-line"><strong id="objective-name"></strong><b id="objective-range"></b></div>
+      <p id="objective-detail"></p>
+      <div class="mission-foot"><i></i><span id="mission-measure"></span></div>
+    </aside>
+    <div id="flight-warning" role="status" hidden></div>
+    <div id="event-banner" role="status" hidden></div>
+    <section class="systems glass" aria-label="Aircraft systems">
+      <div class="micro"><span>AIRCRAFT SYSTEMS</span><span id="g-load"></span></div>
+      <div class="sys-row"><span>FUEL</span><i class="meter"><i id="fuel-bar"></i></i><b id="fuel-value"></b></div>
+      <div class="sys-row"><span>DAMAGE</span><i class="meter orange"><i id="damage-bar"></i></i><b id="damage-value"></b></div>
+      <div class="sys-row"><span>POWER</span><i class="meter"><i id="power-bar"></i></i><b id="power-value"></b></div>
+      <div class="sys-foot"><span id="flap-state"></span><span id="gear-state"></span><span id="brake-state"></span></div>
+    </section>
+    <aside class="map-pod glass" aria-label="Navigation map">
+      <div class="micro"><span>TAC NAV</span><span>↑ N</span></div>
+      <canvas id="minimap" width="264" height="178"></canvas>
+      <div class="micro"><span id="map-bearing"></span><span id="map-camera"></span></div>
+    </aside>
+    <div class="hud-keys"><kbd>C</kbd> View <i></i> <kbd>Esc</kbd> Pause <i></i> <kbd>R</kbd> Restart</div>
+  </section>
+
+  <main id="title" class="title-screen">
+    <div class="title-inner">
+      <div class="eyebrow"><span class="airmark">HR</span> HALCYON REACH AIR SERVICE</div>
+      <h1>Halcyon<br><em>Reach</em></h1>
+      <p>Fly the Petrel SK-2 across the Reach. Carry the post, fight a ridge fire, and bring your aircraft home.</p>
+      <button type="button" class="primary" id="open-briefing">Flight dispatch <span>↗</span></button>
+      <div class="title-tail"><span>HR-PTL</span><span>GULLHAVEN OPERATIONS</span></div>
+    </div>
+  </main>
+
+  <main id="briefing" class="briefing-screen" hidden>
+    <header class="dispatch-header">
+      <div class="dispatch-name"><span class="airmark">HR</span><div><div class="eyebrow">HALCYON REACH AIR SERVICE</div><h1>Flight Dispatch</h1></div></div>
+      <button type="button" id="brief-back" class="quiet">← Title</button>
+    </header>
+    <div class="dispatch-grid">
+      <section class="dispatch-card sortie-list">
+        <h2>Sorties</h2>
+        <div id="mission-list" aria-label="Choose a sortie"></div>
+      </section>
+      <section class="dispatch-card chart-card">
+        <div class="chart-head"><div><small class="eyebrow">AREA CHART</small><h2>Halcyon Archipelago</h2></div><div class="north-arrow">↑<small>N</small></div></div>
+        <canvas id="dispatch-map" width="686" height="576" aria-label="Topographic map with route, airfields and mission targets"></canvas>
+        <div class="chart-legend"><span><i></i> Airfield</span><span><i></i> Selected sortie</span><span>Elevation contours · 120 m</span></div>
+      </section>
+      <section class="dispatch-card release">
+        <div class="eyebrow" id="brief-tag"></div>
+        <h2 id="brief-name"></h2>
+        <div class="release-meta"><span id="brief-base"></span><span id="brief-time"></span></div>
+        <p id="brief-summary"></p>
+        <ul id="brief-notes"></ul>
+        <div class="airframe-status">
+          <div class="eyebrow">AIRWORTHINESS <span>HR-PTL</span></div>
+          <div><b>48.0 L</b><b>0%</b><b>SK-2</b></div>
+          <div><span>FUEL</span><span>DAMAGE</span><span>AIRFRAME</span></div>
+        </div>
+        <button type="button" class="primary" id="launch">Begin sortie <span>↗</span></button>
+      </section>
+    </div>
+    <section class="dispatch-card controls" aria-label="Controls">
+      <h2>Pilot controls</h2><div><kbd>W S</kbd> Pitch <kbd>A D</kbd> Roll <kbd>Q E</kbd> Rudder
+        <kbd>Shift Ctrl</kbd> Power <kbd>F V</kbd> Flaps <kbd>G</kbd> Gear <kbd>B</kbd> Brakes
+        <kbd>C</kbd> Camera <kbd>Drag</kbd> Look <kbd>Space</kbd> Act</div>
+    </section>
+  </main>
+
+  <section id="pause" class="dialog-layer" aria-label="Pause menu" hidden>
+    <div class="dialog dispatch-card">
+      <div class="eyebrow">HALCYON REACH AIR SERVICE</div>
+      <h1>Flight paused</h1>
+      <div class="pause-controls">
+        <span><kbd>W / S</kbd> Pitch</span><span><kbd>A / D</kbd> Roll</span><span><kbd>Q / E</kbd> Rudder</span>
+        <span><kbd>Shift / Ctrl</kbd> Power</span><span><kbd>F / V</kbd> Flaps</span><span><kbd>G / B</kbd> Gear / Brake</span>
+        <span><kbd>C</kbd> Camera</span><span><kbd>Mouse drag</kbd> Look</span><span><kbd>Space</kbd> Act</span>
+      </div>
+      <div class="dialog-buttons"><button type="button" id="resume" class="primary">Resume flight <span>↗</span></button>
+        <button type="button" id="pause-restart" class="quiet">Restart</button><button type="button" id="pause-dispatch" class="quiet">Dispatch</button></div>
+      <p class="dialog-tip">Hold short with brakes on and power idle to refuel at any airfield. Press M to mute.</p>
+    </div>
+  </section>
+
+  <section id="debrief" class="dialog-layer" aria-label="Sortie debrief" hidden>
+    <div class="dialog dispatch-card">
+      <div class="eyebrow" id="debrief-kicker">FLIGHT REPORT</div>
+      <h1 id="debrief-title"></h1>
+      <p id="debrief-result"></p>
+      <div id="report"></div>
+      <div class="dialog-buttons"><button type="button" id="debrief-restart" class="primary">Fly again <span>↗</span></button>
+        <button type="button" id="debrief-dispatch" class="quiet">Flight dispatch</button></div>
+    </div>
+  </section>
+  <script type="module" src="./src/main.js"></script>
 </body>
 </html>

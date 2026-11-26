@@ -1,134 +1,245 @@
-// Boot and the one loop: input is read every frame, the world advances in fixed 1/60 s steps
-// (several in a slow frame, none in a fast one), and the renderer paints what is there. The game
-// moves between four screens: title, play, paused and game over.
-//
-// ?seed=N fixes the falling pattern. ?shot=start|play|end (with &seed=N) stages that scene
-// instead of running the loop, paints it twice and sets window.__shotReady for a screenshot.
-import { BEST_KEY, LIVES, STEP } from './config.js';
-import { createRandom } from './random.js';
-import { createWorld, EVENT_HIT, EVENT_OVER } from './world.js';
-import { ACTION_CONFIRM, ACTION_PAUSE, createInput } from './input.js';
-import { createRenderer, SCREEN_OVER, SCREEN_PAUSED, SCREEN_PLAY, SCREEN_TITLE } from './render.js';
-import { stageShot } from './shots.js';
+import { bindPilotInput } from './core/input.js';
+import { FLIGHT_STEP, startFlightLoop } from './core/loop.js';
+import { clamp, RAD } from './core/math.js';
+import { createFlight, NEUTRAL, stepFlight } from './flight/flightModel.js';
+import { createArchipelago } from './world/archipelago.js';
+import { createFlightCamera } from './camera/flightCamera.js';
+import { createHud } from './hud/hud.js';
+import { createFlightCharts } from './hud/minimap.js';
+import { MISSIONS, beginSortie, updateMission } from './missions/missionDirector.js';
+import { scoreSortie } from './missions/debrief.js';
+import { createDispatch, element } from './ui/dispatch.js';
+import { renderFlightReport } from './ui/report.js';
+import { buildFlightAudio } from './audio/engineSound.js';
+import { SHOT_PRESETS } from './shots.js';
 
-/** The longest frame the loop catches up on; a longer stall (a hidden tab) is dropped, not replayed. */
-const MAX_FRAME = 0.25;
+const view = element('view');
+const world = createArchipelago(view);
+const cameras = createFlightCamera();
+const inputs = bindPilotInput(view);
+const audio = buildFlightAudio();
+const charts = createFlightCharts(element('dispatch-map'), element('minimap'));
+const hud = createHud(element('instruments'), charts);
+const dispatch = createDispatch(charts, launch);
+const before = { x: 0, y: 0, z: 0 };
+const titleRoute = {
+  x: 393, y: 170, z: 681, yaw: -12 * RAD, speed: 48, roll: .11, pitch: .045,
+  fuel: 42.8, grounded: false, throttle: .64, power: .64, gear: false, flaps: 0
+};
 
-const params = new URLSearchParams(window.location.search);
-const shot = params.get('shot');
-const seedParam = Number.parseInt(params.get('seed') ?? '', 10);
-const seed = Number.isInteger(seedParam) ? seedParam : Math.floor(Math.random() * 4294967296);
+let screen = 'title';
+let sortie = beginSortie(MISSIONS[0]);
+let preview = createFlight(titleRoute);
+let time = 0;
+let input = NEUTRAL;
+let notification = '';
+let notificationTime = 0;
+let finishDelay = 0;
+let pendingReport = null;
+let requestAction = false;
 
-const canvas = document.getElementById('game');
-const status = document.getElementById('status');
-const world = createWorld(createRandom(seed));
-const renderer = createRenderer(canvas);
+function switchScreen(next) {
+  screen = next;
+  document.body.dataset.screen = next;
+  for (const panel of ['title', 'briefing', 'pause', 'debrief']) element(panel).hidden = next !== panel;
+  element('hud').hidden = !['flight', 'pause', 'debrief'].includes(next);
+  inputs.setActive(next === 'flight');
+  if (next === 'briefing') dispatch.open();
+}
 
-function readBest() {
-  try {
-    return Number.parseInt(window.localStorage.getItem(BEST_KEY) ?? '0', 10) || 0;
-  } catch {
-    return 0;
+function showDispatch() {
+  audio.transient('ui');
+  world.setTimeOfDay(false);
+  cameras.reset();
+  preview = createFlight(titleRoute);
+  switchScreen('briefing');
+}
+
+function launch(mission) {
+  audio.initialize();
+  audio.transient('ui');
+  sortie = beginSortie(mission);
+  world.effects.reset();
+  world.setTimeOfDay(Boolean(mission.night));
+  cameras.reset(mission.night ? 'cockpit' : 'chase');
+  pendingReport = null;
+  finishDelay = notificationTime = 0;
+  requestAction = false;
+  input = NEUTRAL;
+  switchScreen('flight');
+}
+
+function resize() {
+  const { innerWidth: w, innerHeight: h } = window;
+  world.resize(w, h);
+  hud.resize(w, h);
+  cameras.camera.aspect = w / h;
+  cameras.camera.updateProjectionMatrix();
+}
+
+function say(message, seconds = 3) {
+  notification = message;
+  notificationTime = seconds;
+}
+
+function handleFlightEvent(event) {
+  if (!event) return;
+  world.effects.flightEvent(event, sortie.plane);
+  if (event.type === 'takeoff') say('AIRBORNE · POSITIVE RATE');
+  if (event.type === 'refuel') say('REFUELLING · HOLD BRAKES, POWER IDLE');
+  if (event.type === 'rough') say('OFF-FIELD LANDING · AIRFRAME DAMAGE');
+  if (event.type === 'bird') say('BIRD STRIKE · CHECK HANDLING');
+  if (event.type === 'scrape') say('TREE STRIKE · CHECK AIRFRAME');
+  if (event.type === 'touchdown') {
+    const { sink, grade } = event.landing;
+    say('Touchdown −' + sink.toFixed(1) + ' m/s · ' + grade, 4);
+  }
+  if (['touchdown', 'crash', 'rough', 'scrape', 'bird'].includes(event.type)) audio.transient(event.type);
+}
+
+function actInFlight(code) {
+  const plane = sortie.plane;
+  if (code === 'KeyF') plane.flaps = Math.min(3, plane.flaps + 1);
+  if (code === 'KeyV') plane.flaps = Math.max(0, plane.flaps - 1);
+  if (code === 'KeyG') {
+    if (plane.grounded) say('GEAR LOCKED ON THE GROUND');
+    else plane.gear = !plane.gear;
+  }
+  if (code === 'KeyB') plane.brakes = !plane.brakes;
+  if (code === 'KeyC') cameras.toggle();
+  if (code === 'Space') requestAction = true;
+  if (code === 'Escape') switchScreen('pause');
+}
+
+function readActions() {
+  const { actions, wheel, lookX, lookY } = inputs.readActions();
+  for (const code of actions) {
+    if (code === 'KeyM') say(audio.toggle() ? 'AUDIO MUTED' : 'AUDIO ON');
+    if (code === 'KeyR' && ['flight', 'pause', 'debrief'].includes(screen)) {
+      launch(sortie.definition);
+      continue;
+    }
+    if (screen === 'flight') actInFlight(code);
+    else if (screen === 'pause' && (code === 'Escape' || code === 'Enter')) switchScreen('flight');
+    else if (screen === 'title' && (code === 'Enter' || code === 'Space')) showDispatch();
+    else if (screen === 'briefing' && code === 'Escape') switchScreen('title');
+    else if (screen === 'briefing' && code === 'Enter') launch(dispatch.selected());
+  }
+  if (screen === 'flight') {
+    if (wheel) sortie.plane.throttle = clamp(sortie.plane.throttle + wheel, 0, 1);
+    if (lookX || lookY) cameras.drag(lookX, lookY);
   }
 }
 
-function saveBest(value) {
-  try {
-    window.localStorage.setItem(BEST_KEY, String(value));
-  } catch {
-    // Storage can be off (private windows): the best score then lasts this visit only.
+function advanceFlight(dt) {
+  const { plane, definition } = sortie;
+  if (pendingReport) {
+    if (!plane.crashed && plane.grounded) {
+      const coast = Math.min(plane.speed, dt * 6.5);
+      plane.speed -= coast;
+      plane.x += Math.sin(plane.yaw) * plane.speed * dt;
+      plane.z -= Math.cos(plane.yaw) * plane.speed * dt;
+      plane.throttle = Math.max(0, plane.throttle - dt * .64);
+      plane.power = Math.max(.12, plane.power - dt * .37);
+    }
+    finishDelay -= dt;
+    if (finishDelay <= 0) {
+      dispatch.save(definition.id, pendingReport);
+      renderFlightReport(pendingReport, definition);
+      switchScreen('debrief');
+    }
+    return;
+  }
+  before.x = plane.x;
+  before.y = plane.y;
+  before.z = plane.z;
+  const event = stepFlight(plane, input, dt, definition.night ? 'dusk' : 'day');
+  handleFlightEvent(event);
+  const outcome = updateMission(sortie, before, event, requestAction, dt);
+  requestAction = false;
+  if (!outcome) return;
+  if (outcome.drop) world.effects.drop(plane, outcome.finish);
+  if (outcome.cue && event?.type !== 'touchdown') say(outcome.cue);
+  if (outcome.cue && event?.type === 'touchdown' && !outcome.finish) say(notification + ' · ' + outcome.cue, 4);
+  if (outcome.cue && definition.id === 'ring') audio.transient('gate');
+  if (outcome.finish) {
+    pendingReport = scoreSortie(definition, sortie, plane, outcome.crash);
+    finishDelay = outcome.crash ? 1.55 : outcome.drop ? 2.5 : 2.1;
+    if (outcome.crash) {
+      cameras.reset('chase');
+      say('Crashed: ' + outcome.crash.reason + ' at ' + outcome.crash.speed + ' kt', 4);
+    }
   }
 }
 
-function runShot(name) {
-  const scene = stageShot(name, world);
-  let painted = 0;
-  function paint() {
-    renderer.draw(world.state, scene.screen, scene.best);
-    painted += 1;
-    if (painted < 2) requestAnimationFrame(paint);
+function update(dt) {
+  if (screen === 'flight') {
+    input = inputs.controls();
+    notificationTime -= dt;
+    advanceFlight(dt);
+  }
+}
+
+function paint(dt) {
+  if (screen !== 'pause') time += dt;
+  const menu = screen === 'title' || screen === 'briefing';
+  const cockpit = !menu && cameras.mode === 'cockpit';
+  const shown = menu ? { definition: MISSIONS[0], gate: -1, plane: preview } : sortie;
+  if (menu) {
+    preview.x = titleRoute.x + Math.sin(time * .25) * 28;
+    preview.z = titleRoute.z - Math.sin(time * .18) * 53;
+    preview.roll = .115 + Math.sin(time * .60) * .083;
+  }
+  cameras.update(shown.plane, dt, menu);
+  world.paint(shown, input, cameras.camera, screen === 'pause' ? 0 : dt, time, cockpit);
+  document.body.dataset.view = cockpit ? 'cockpit' : 'chase';
+  if (!menu) hud.draw(sortie, cameras.camera, cockpit, notificationTime > 0 ? notification : '');
+  else hud.clear();
+  audio.update(sortie.plane, screen === 'flight', cockpit);
+}
+
+function runShot(preset) {
+  const mission = MISSIONS.find(record => record.id === preset.mission);
+  sortie = beginSortie(mission);
+  if (preset.plane) sortie.plane = createFlight(preset.plane);
+  if (preset.gate !== undefined) sortie.gate = preset.gate;
+  sortie.airborne = !sortie.plane.grounded;
+  time = preset.time;
+  input = { ...NEUTRAL, ...preset.controls };
+  world.setTimeOfDay(Boolean(mission.night));
+  cameras.reset(preset.camera);
+  dispatch.select(mission);
+  switchScreen(preset.screen ?? 'flight');
+  let frames = 0;
+  function expose() {
+    if (!preset.screen) advanceFlight(FLIGHT_STEP);
+    paint(1 / 60);
+    if (++frames < (preset.frames ?? 20)) requestAnimationFrame(expose);
     else window.__shotReady = true;
   }
-  requestAnimationFrame(paint);
+  requestAnimationFrame(expose);
+  addEventListener('resize', () => paint(0));
 }
 
-function runGame() {
-  const input = createInput(canvas);
-  let screen = SCREEN_TITLE;
-  let best = readBest();
-  let accumulator = 0;
-  let last = performance.now();
-
-  // Screen readers (and anyone watching the page's text) hear the screen changes and each hit.
-  function announce(message) {
-    status.textContent = message;
-  }
-
-  function startGame() {
-    world.reset();
-    accumulator = 0;
-    screen = SCREEN_PLAY;
-    announce(`Playing. ${LIVES} lives.`);
-  }
-
-  function endGame() {
-    screen = SCREEN_OVER;
-    if (world.state.score > best) {
-      best = world.state.score;
-      saveBest(best);
-    }
-    announce(`Game over. Score ${world.state.score}. Best ${best}.`);
-  }
-
-  function handleActions() {
-    const actions = input.takeActions();
-    if (actions & ACTION_CONFIRM && (screen === SCREEN_TITLE || screen === SCREEN_OVER)) startGame();
-    else if (actions & ACTION_PAUSE && screen === SCREEN_PLAY) {
-      screen = SCREEN_PAUSED;
-      announce('Paused.');
-    } else if (actions & (ACTION_PAUSE | ACTION_CONFIRM) && screen === SCREEN_PAUSED) {
-      screen = SCREEN_PLAY;
-      announce('Playing.');
-    }
-  }
-
-  function step() {
-    if (screen === SCREEN_TITLE) {
-      world.step(STEP, 0, true);
-      return;
-    }
-    const events = world.step(STEP, input.direction(), false);
-    if (events & EVENT_OVER) endGame();
-    else if (events & EVENT_HIT) announce(world.state.lives === 1 ? 'Hit. 1 life left.' : `Hit. ${world.state.lives} lives left.`);
-  }
-
-  function frame(now) {
-    requestAnimationFrame(frame);
-    accumulator += Math.min((now - last) / 1000, MAX_FRAME);
-    last = now;
-    handleActions();
-    if (screen === SCREEN_TITLE || screen === SCREEN_PLAY) {
-      while (accumulator >= STEP && (screen === SCREEN_TITLE || screen === SCREEN_PLAY)) {
-        step();
-        accumulator -= STEP;
-      }
-    } else {
-      accumulator = 0;
-    }
-    renderer.draw(world.state, screen, best);
-  }
-
-  // Leaving the tab pauses a running game rather than letting blocks fall unseen.
-  document.addEventListener('visibilitychange', () => {
-    if (document.hidden && screen === SCREEN_PLAY) {
-      screen = SCREEN_PAUSED;
-      announce('Paused.');
-    }
-  });
-
-  announce('Block Dodger. Press Space or click to start.');
-  requestAnimationFrame(frame);
-}
-
-if (shot) runShot(shot);
-else runGame();
+element('open-briefing').addEventListener('click', () => {
+  audio.initialize();
+  showDispatch();
+});
+element('brief-back').addEventListener('click', () => switchScreen('title'));
+element('resume').addEventListener('click', () => switchScreen('flight'));
+element('pause-restart').addEventListener('click', () => launch(sortie.definition));
+element('pause-dispatch').addEventListener('click', showDispatch);
+element('debrief-restart').addEventListener('click', () => launch(sortie.definition));
+element('debrief-dispatch').addEventListener('click', showDispatch);
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && screen === 'flight' && !pendingReport && !new URLSearchParams(location.search).has('shot')) switchScreen('pause');
+});
+addEventListener('resize', resize);
+resize();
+const preset = Object.hasOwn(SHOT_PRESETS, new URLSearchParams(location.search).get('shot'))
+  ? SHOT_PRESETS[new URLSearchParams(location.search).get('shot')] : null;
+if (preset) runShot(preset);
+else startFlightLoop(update, dt => {
+  readActions();
+  paint(dt);
+});
