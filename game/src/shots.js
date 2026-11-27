@@ -12,7 +12,7 @@ export const SHOT_PRESETS = {
     controls: { roll: .34 }
   },
   approach: {
-    mission: 'dusk', camera: 'cockpit', time: 83,
+    mission: 'dusk', camera: 'cockpit', time: 83, hudClass: 'shot-clean shot-cockpit',
     plane: {
       x: 114, y: 48.6, z: 625, yaw: -2.0 * RAD, roll: -.018, pitch: .013, grounded: false,
       speed: 36.5, vy: -2.1, throttle: .41, power: .41, gear: true, flaps: 2,

@@ -1,4 +1,4 @@
-import * as THREE from '../../vendor/three.module.min.js';
+import { Vector3 } from '../../vendor/three.module.min.js';
 import { bearing, angleDelta, heading, KNOT } from '../core/math.js';
 import { FUEL_CAPACITY } from '../flight/engine.js';
 import { activeObjective, missionMeasure, showRange } from '../missions/missionDirector.js';
@@ -11,6 +11,7 @@ import { drawInstrumentPanel } from './instrumentPanel.js';
 function set(id, message) {
   const node = element(id);
   if (node.textContent !== message) node.textContent = message;
+  return node;
 }
 
 function renderSystems(plane) {
@@ -29,7 +30,7 @@ function renderSystems(plane) {
 export function createHud(canvas, charts) {
   const g = canvas.getContext('2d');
   const root = element('hud');
-  const marker = new THREE.Vector3();
+  const marker = new Vector3();
   let width = 0;
   let height = 0;
 
@@ -51,10 +52,9 @@ export function createHud(canvas, charts) {
     const x = width * (marker.x + 1) * .5;
     const y = height * (1 - marker.y) * .5;
     if (x < 175 || x > width - 175 || y < 117 || y > height - 198) return;
-    const color = '#fff0bb';
     g.save();
     g.translate(x, y);
-    g.strokeStyle = color;
+    g.strokeStyle = '#fff0bb';
     g.lineWidth = 1.2;
     g.shadowColor = '#192929';
     g.shadowBlur = 5;
@@ -66,7 +66,7 @@ export function createHud(canvas, charts) {
     g.closePath();
     g.stroke();
     const tag = kind === 'fire' ? 'FIRE LINE' : kind === 'rescue' ? 'FLARE' : kind === 'lake' ? 'SCOOP' : 'SEARCH';
-    dialText(g, tag, 0, 23, color, 10.5);
+    dialText(g, tag, 0, 23, g.strokeStyle, 10.5);
     g.restore();
   }
 
@@ -81,7 +81,7 @@ export function createHud(canvas, charts) {
       root.dataset.speed = Math.round(plane.speed * KNOT);
       root.dataset.altitude = Math.round(plane.y * 3.28084);
       root.dataset.heading = heading(plane.yaw);
-      root.dataset.grounded = String(plane.grounded);
+      root.dataset.grounded = plane.grounded;
       g.clearRect(0, 0, width, height);
       if (!cockpit) drawInstrumentPanel(g, width, height, plane, false, sortie.definition.night);
       if (!clean) drawWorldMarker(camera, objective, plane);
@@ -101,11 +101,10 @@ export function createHud(canvas, charts) {
       const warning = plane.stallWarning ? 'STALL · LOWER THE NOSE' :
         plane.fuel < 12 ? 'LOW FUEL' + (plane.damage >= .25 ? '  /  AIRFRAME DAMAGE' : ' · PLAN A REFUEL STOP') :
           plane.damage >= .25 ? 'AIRFRAME DAMAGE · REDUCED CONTROL' : '';
-      element('flight-warning').hidden = !warning;
-      element('flight-warning').classList.toggle('caution', warning && !plane.stallWarning);
-      element('event-banner').hidden = !notification;
-      set('flight-warning', warning);
-      set('event-banner', notification);
+      const caution = set('flight-warning', warning);
+      caution.hidden = !warning;
+      caution.classList.toggle('caution', warning && !plane.stallWarning);
+      set('event-banner', notification).hidden = !notification;
     }
   };
 }

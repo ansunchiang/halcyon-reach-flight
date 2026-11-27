@@ -5,7 +5,7 @@ const ink = '#e9f2d7';
 const mint = '#c5ead1';
 const gold = '#f8cf93';
 
-function pointer(g, x, y, size, color, turn = 0) {
+function pointer(g, x, y, size, color, turn) {
   g.save();
   g.translate(x, y);
   g.rotate(turn);
@@ -46,8 +46,7 @@ function drawHeading(g, w, yaw, target) {
   dialText(g, heading(yaw), center, y + 59, '#fff0c9', 18);
 }
 
-function drawTape(g, settings) {
-  const { x, y, width, height, speed, raw, cockpit } = settings;
+function drawTape(g, { x, y, width, height, speed, raw, cockpit }) {
   const mid = x + width / 2;
   const center = y + height / 2;
   const lineX = speed ? x + width - 1 : x + 1;
@@ -115,24 +114,26 @@ function drawVerticalRate(g, x, y, rate) {
 }
 
 export function drawFlightTapes(g, w, h, plane, angle, cockpit, objective, clean) {
+  if (!clean) drawFlightReference(g, w, h, plane, cockpit);
+  drawHeading(g, w, plane.yaw, angle);
+  if (objective.kind === 'landing') {
+    const wind = plane.wind?.x ?? 0;
+    const label = (wind >= 0 ? 'W WIND → ' : '← E WIND ') + Math.round(Math.abs(wind) * KNOT) + ' KT';
+    const windY = w > 900 ? 103 : 92;
+    g.lineWidth = 1;
+    plate(g, w / 2 - 63, windY, 126, 20, 3, '#142831c8', '#bdc9b47f');
+    dialText(g, label, w / 2, windY + 10.5, gold, 10);
+  }
+  if (clean && cockpit) return;
   const height = Math.min(h * .30, clean ? 185 : 210);
   const y = Math.max(170, h * .43 - height * .5);
   const width = !clean && w > 900 ? 65 : 55;
   const x = w > 900 ? 32 : 15;
   const right = w - x - width;
-  if (!clean) drawFlightReference(g, w, h, plane, cockpit);
-  drawHeading(g, w, plane.yaw, angle);
   drawTape(g, { x, y, width, height, speed: true, raw: plane.speed * KNOT, cockpit });
   drawTape(g, { x: right, y, width, height, raw: plane.y * 3.28084, cockpit });
   if (clean) return;
   plate(g, right - 5, y + height + 8, width + 10, 29, 3, '#142c30e8', '#b9dec283');
   dialText(g, 'RAD ' + Math.round(plane.agl) + ' m', right + width / 2, y + height + 23, mint, 11);
   drawVerticalRate(g, x - 4, y + height + 9, plane.vy);
-  if (objective.kind === 'landing') {
-    const wind = plane.wind?.x ?? 0;
-    const label = (wind >= 0 ? 'W WIND → ' : '← E WIND ') + Math.round(Math.abs(wind) * KNOT) + ' KT';
-    const windY = w > 900 ? 103 : 92;
-    plate(g, w / 2 - 63, windY, 126, 20, 3, '#142831c8', '#bdc9b47f');
-    dialText(g, label, w / 2, windY + 10.5, gold, 10);
-  }
 }
