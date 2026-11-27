@@ -14,16 +14,12 @@ function set(id, message) {
 }
 
 function renderSystems(plane) {
-  const rounded = (x) => Math.round(x * 100) + '%';
-  const fuel = rounded(plane.fuel / FUEL_CAPACITY);
-  const damage = rounded(plane.damage);
-  const power = rounded(plane.throttle);
-  element('fuel-bar').style.width = fuel;
-  element('damage-bar').style.width = damage;
-  element('power-bar').style.width = power;
-  set('fuel-value', plane.fuel.toFixed(1) + 'L');
-  set('damage-value', damage);
-  set('power-value', power);
+  const levels = { fuel: plane.fuel / FUEL_CAPACITY, damage: plane.damage, power: plane.throttle };
+  for (const [name, level] of Object.entries(levels)) {
+    const percent = Math.round(level * 100) + '%';
+    element(name + '-bar').style.width = percent;
+    set(name + '-value', name === 'fuel' ? plane.fuel.toFixed(1) + 'L' : percent);
+  }
   set('g-load', plane.g.toFixed(1) + ' G');
   set('flap-state', 'FLAP ' + [0, 10, 20, 35][plane.flaps] + '°');
   set('gear-state', 'GEAR ' + (plane.gear ? 'DN' : 'UP'));
@@ -32,28 +28,26 @@ function renderSystems(plane) {
 
 export function createHud(canvas, charts) {
   const g = canvas.getContext('2d');
+  const root = element('hud');
   const marker = new THREE.Vector3();
-  const direction = new THREE.Vector3();
-  const relative = new THREE.Vector3();
   let width = 0;
   let height = 0;
-  let ratio = 1;
 
   function resize(w, h) {
     width = w;
     height = h;
-    ratio = Math.min(1.5, devicePixelRatio || 1);
+    const ratio = Math.min(1.5, devicePixelRatio || 1);
     canvas.width = Math.round(w * ratio);
     canvas.height = Math.round(h * ratio);
     g.setTransform(ratio, 0, 0, ratio, 0, 0);
   }
 
   function drawWorldMarker(camera, objective, plane) {
-    if (objective.kind === 'gate' || objective.kind === 'landing' || plane.grounded) return;
-    marker.set(objective.x, objective.y + (objective.kind === 'fire' ? 22 : 8), objective.z);
-    camera.getWorldDirection(direction);
-    if (relative.copy(marker).sub(camera.position).dot(direction) <= 0) return;
+    const { kind } = objective;
+    if (kind === 'gate' || kind === 'landing' || plane.grounded) return;
+    marker.set(objective.x, objective.y + (kind === 'fire' ? 22 : 8), objective.z);
     marker.project(camera);
+    if (Math.abs(marker.z) > 1) return;
     const x = width * (marker.x + 1) * .5;
     const y = height * (1 - marker.y) * .5;
     if (x < 175 || x > width - 175 || y < 117 || y > height - 198) return;
@@ -71,8 +65,7 @@ export function createHud(canvas, charts) {
     g.lineTo(-12, 0);
     g.closePath();
     g.stroke();
-    const tag = objective.kind === 'fire' ? 'FIRE LINE' : objective.kind === 'rescue' ? 'FLARE' :
-      objective.kind === 'lake' ? 'SCOOP' : 'SEARCH';
+    const tag = kind === 'fire' ? 'FIRE LINE' : kind === 'rescue' ? 'FLARE' : kind === 'lake' ? 'SCOOP' : 'SEARCH';
     dialText(g, tag, 0, 23, color, 10.5);
     g.restore();
   }
@@ -84,21 +77,22 @@ export function createHud(canvas, charts) {
       const plane = sortie.plane;
       const objective = activeObjective(sortie);
       const target = bearing(plane, objective);
-      const root = element('hud');
+      const clean = root.classList.contains('shot-clean');
       root.dataset.speed = Math.round(plane.speed * KNOT);
       root.dataset.altitude = Math.round(plane.y * 3.28084);
       root.dataset.heading = heading(plane.yaw);
       root.dataset.grounded = String(plane.grounded);
       g.clearRect(0, 0, width, height);
-      if (!cockpit) drawInstrumentPanel(g, width, height, plane, false, Boolean(sortie.definition.night));
-      drawWorldMarker(camera, objective, plane);
-      drawFlightTapes(g, width, height, plane, angleDelta(plane.yaw, target), cockpit, objective);
-      charts.drawMini(plane, objective);
+      if (!cockpit) drawInstrumentPanel(g, width, height, plane, false, sortie.definition.night);
+      if (!clean) drawWorldMarker(camera, objective, plane);
+      drawFlightTapes(g, width, height, plane, angleDelta(plane.yaw, target), cockpit, objective, clean);
       set('mission-title', sortie.definition.name);
-      set('mission-clock', elapsedLabel(plane.elapsed));
-      set('mission-phase', plane.grounded ? 'GROUND OPERATIONS' : 'ACTIVE SORTIE');
       set('objective-name', objective.label);
       set('objective-range', showRange(plane, objective));
+      if (clean) return;
+      charts.drawMini(plane, objective);
+      set('mission-clock', elapsedLabel(plane.elapsed));
+      set('mission-phase', plane.grounded ? 'GROUND OPERATIONS' : 'ACTIVE SORTIE');
       set('objective-detail', objective.detail);
       set('mission-measure', missionMeasure(sortie));
       set('map-bearing', 'BRG ' + heading(target));
@@ -108,10 +102,10 @@ export function createHud(canvas, charts) {
         plane.fuel < 12 ? 'LOW FUEL' + (plane.damage >= .25 ? '  /  AIRFRAME DAMAGE' : ' · PLAN A REFUEL STOP') :
           plane.damage >= .25 ? 'AIRFRAME DAMAGE · REDUCED CONTROL' : '';
       element('flight-warning').hidden = !warning;
-      element('flight-warning').classList.toggle('caution', Boolean(warning) && !plane.stallWarning);
+      element('flight-warning').classList.toggle('caution', warning && !plane.stallWarning);
       element('event-banner').hidden = !notification;
       set('flight-warning', warning);
-      set('event-banner', notification || '');
+      set('event-banner', notification);
     }
   };
 }

@@ -201,6 +201,7 @@ function paint(dt) {
 
 function runShot(preset) {
   photoRig = preset.rig;
+  element('hud').className = preset.hudClass ?? '';
   const mission = MISSIONS.find(record => record.id === preset.mission);
   sortie = beginSortie(mission);
   if (preset.plane) sortie.plane = createFlight(preset.plane);

@@ -47,7 +47,8 @@ function drawHeading(g, w, yaw, target) {
 }
 
 function drawTape(g, settings) {
-  const { x, y, width, height, speed, raw, unit, name, cockpit } = settings;
+  const { x, y, width, height, speed, raw, cockpit } = settings;
+  const mid = x + width / 2;
   const center = y + height / 2;
   const lineX = speed ? x + width - 1 : x + 1;
   const step = speed ? 5 : 25;
@@ -63,17 +64,16 @@ function drawTape(g, settings) {
     const offset = center + (raw - value) * period;
     const mark = speed ? index % 2 === 0 : index % 4 === 0;
     line(g, lineX, offset, lineX + (speed ? -1 : 1) * (mark ? 13 : 7), offset, '#d9ecd0a9', mark ? 1.3 : .8);
-    if (mark) dialText(g, value, x + width / 2, offset, ink, 10.5);
+    if (mark) dialText(g, value, mid, offset, ink, 10.5);
   }
   g.restore();
-  line(g, x + 5, y + 24, x + width - 5, y + 24, '#bad7bc61');
-  line(g, x + 5, y + height - 24, x + width - 5, y + height - 24, '#bad7bc61');
-  dialText(g, name, x + width / 2, y + 12, mint, cockpit ? 9 : 10.5);
-  dialText(g, unit, x + width / 2, y + height - 11, mint, 9);
+  for (const edge of [y + 24, y + height - 24]) line(g, x + 5, edge, x + width - 5, edge, '#bad7bc61');
+  dialText(g, speed ? 'AIRSPEED' : 'ALTITUDE', mid, y + 12, mint, cockpit ? 9 : 10.5);
+  dialText(g, speed ? 'KT IAS' : 'FT MSL', mid, y + height - 11, mint, 9);
   const boxWidth = width + 16;
   plate(g, speed ? x - 3 : x - 13, center - 20, boxWidth, 40, 4, '#10262a', '#c7e6cfdd');
   pointer(g, speed ? x + width + 8 : x - 8, center, 6.2, '#e9e9ba', speed ? Math.PI / 2 : -Math.PI / 2);
-  dialText(g, Math.round(raw), x + width / 2 + (speed ? 1 : -1), center, '#fff0ca', 24);
+  dialText(g, Math.round(raw), mid + (speed ? 1 : -1), center, '#fff0ca', 24);
 }
 
 function drawFlightReference(g, w, h, plane, cockpit) {
@@ -88,13 +88,12 @@ function drawFlightReference(g, w, h, plane, cockpit) {
     const middle = i === 0;
     const ox = middle ? 76 : 52;
     const color = middle ? '#d7f3d9b8' : '#d7f3d970';
-    line(g, -ox, y, -28, y, color, middle ? 1.5 : 1);
-    line(g, ox, y, 28, y, color, middle ? 1.5 : 1);
-    if (middle) continue;
-    line(g, 28, y, 28, y + Math.sign(i) * 5, color);
-    line(g, -28, y, -28, y + Math.sign(i) * 5, color);
-    dialText(g, Math.abs(i * 5), -ox - 9, y, color, 8);
-    dialText(g, Math.abs(i * 5), ox + 9, y, color, 8);
+    for (const side of [-1, 1]) {
+      line(g, side * ox, y, side * 28, y, color, middle ? 1.5 : 1);
+      if (middle) continue;
+      line(g, side * 28, y, side * 28, y + Math.sign(i) * 5, color);
+      dialText(g, Math.abs(i * 5), side * (ox + 9), y, color, 8);
+    }
   }
   g.restore();
   const gamma = Math.atan2(plane.vy, Math.max(12, plane.speed));
@@ -115,16 +114,17 @@ function drawVerticalRate(g, x, y, rate) {
   dialText(g, formatted, x + 39.5, y + 32, gold, 16);
 }
 
-export function drawFlightTapes(g, w, h, plane, angle, cockpit, objective) {
-  const height = Math.min(h * .30, 210);
+export function drawFlightTapes(g, w, h, plane, angle, cockpit, objective, clean) {
+  const height = Math.min(h * .30, clean ? 185 : 210);
   const y = Math.max(170, h * .43 - height * .5);
-  const width = w > 900 ? 65 : 55;
+  const width = !clean && w > 900 ? 65 : 55;
   const x = w > 900 ? 32 : 15;
   const right = w - x - width;
-  drawFlightReference(g, w, h, plane, cockpit);
+  if (!clean) drawFlightReference(g, w, h, plane, cockpit);
   drawHeading(g, w, plane.yaw, angle);
-  drawTape(g, { x, y, width, height, speed: true, name: 'AIRSPEED', unit: 'KT IAS', raw: plane.speed * KNOT, cockpit });
-  drawTape(g, { x: right, y, width, height, speed: false, name: 'ALTITUDE', unit: 'FT MSL', raw: plane.y * 3.28084, cockpit });
+  drawTape(g, { x, y, width, height, speed: true, raw: plane.speed * KNOT, cockpit });
+  drawTape(g, { x: right, y, width, height, raw: plane.y * 3.28084, cockpit });
+  if (clean) return;
   plate(g, right - 5, y + height + 8, width + 10, 29, 3, '#142c30e8', '#b9dec283');
   dialText(g, 'RAD ' + Math.round(plane.agl) + ' m', right + width / 2, y + height + 23, mint, 11);
   drawVerticalRate(g, x - 4, y + height + 9, plane.vy);

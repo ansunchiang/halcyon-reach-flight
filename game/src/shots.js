@@ -2,7 +2,7 @@ import { RAD } from './core/math.js';
 
 export const SHOT_PRESETS = {
   cover: {
-    mission: 'ring', camera: 'chase', time: 38, gate: 3,
+    mission: 'ring', camera: 'chase', time: 38, gate: 3, hudClass: 'shot-clean',
     rig: { range: 22.1, rise: 9.65, swing: -.13, tilt: -.19 },
     plane: {
       x: 88, y: 117, z: 644, yaw: 3.7 * RAD, roll: .25, pitch: .04, grounded: false,

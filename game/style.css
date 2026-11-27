@@ -5,8 +5,6 @@
   --mint: #b3e4ce;
   --line: #91ad9c51;
   --gold: #f3c781;
-  --ember: #ffac75;
-  --charcoal: #0c1a20;
   --serif: Georgia, 'Times New Roman', serif;
   --mono: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
   font-family: system-ui, sans-serif;
@@ -54,6 +52,12 @@ canvas { display: block; }
 .objective-line strong { font-size: 13px; line-height: 1.24; color: #fff1d4; }
 .objective-line b { font: 700 12px var(--mono); color: var(--gold); flex-shrink: 0; }
 .objective p { font-size: 11px; color: #c3d3c6; margin: 5px 0 9px; line-height: 1.36; }
+.shot-clean > :not(.flight-id, .objective),
+.shot-clean :is(small, .micro, p, .mission-foot) { display: none; }
+.shot-clean .objective, [data-view=cockpit] .objective { width: 176px; padding: 9px 11px; }
+.shot-clean h2 { margin: 0 0 5px; }
+.shot-clean h2, [data-view=cockpit] .objective h2 { font-size: 23px; }
+[data-view=cockpit] .objective { right: max(12px, calc(50% - 43vh)); top: 108px; }
 .mission-foot { display: flex; align-items: center; gap: 7px; padding-top: 8px; border-top: 1px solid #abc0a941; color: var(--mint); }
 .mission-foot i { width: 6px; height: 6px; background: var(--gold); border-radius: 50%; box-shadow: 0 0 8px #f2c58c; }
 .systems { position: absolute; left: 27px; bottom: 39px; width: 207px; padding: 9px 11px 8px; border-radius: 4px 4px 7px 4px; }
