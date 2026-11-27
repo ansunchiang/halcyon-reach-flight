@@ -3,10 +3,7 @@ import { dialText, drawAttitude, drawCompass, drawGauge, plate } from './dials.j
 
 function panelMetal(g, x, y, w, h) {
   const surface = g.createLinearGradient(0, y, 0, y + h);
-  surface.addColorStop(0, '#4c5c57');
-  surface.addColorStop(.048, '#23343a');
-  surface.addColorStop(.3, '#172a30');
-  surface.addColorStop(1, '#101c23');
+  for (const [at, color] of [[0, '#4c5c57'], [.048, '#23343a'], [.3, '#172a30'], [1, '#101c23']]) surface.addColorStop(at, color);
   plate(g, x, y, w, h, 10, surface, '#869a88bf');
   const light = g.createRadialGradient(x + w / 2, y + h * .35, 1, x + w / 2, y + h * .35, w / 2);
   light.addColorStop(0, '#f4bd631c');
@@ -59,9 +56,8 @@ export function drawInstrumentPanel(g, w, h, plane, cockpit, night) {
   const center = 91;
   panelMetal(g, 1, 1, w - 2, h - 2);
   const ins = offset => [mid + offset * spread, center];
-  const angle = plane.roll;
   mph(ins(-2), r);
-  drawAttitude(g, ins(-1), r, plane.pitch, angle, night);
+  drawAttitude(g, ins(-1), r, plane.pitch, plane.roll, night);
   altitude(ins(0), r);
   drawCompass(g, ins(1), r, plane.yaw, night, course);
   vertical(ins(2), r);

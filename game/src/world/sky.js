@@ -2,7 +2,7 @@ import * as THREE from '../../vendor/three.module.min.js';
 
 const DAY = {
   zenith: '#346991', rim: '#eeac75', sun: '#ffd39a', mist: '#c18b79',
-  cloud: '#f6c492', shade: '#6a7393', brightness: 3.18, ambient: 1.40,
+  cloud: '#f6c492', shade: '#6a7393', brightness: 3.18, ambient: 1.4,
   direction: [.375, .166, -.912], haze: .000115
 };
 const DUSK = {
@@ -12,11 +12,11 @@ const DUSK = {
 };
 
 export function buildSky(scene) {
+  const colors = ['zenith', 'rim', 'sun', 'cloud', 'shade'];
   const uniforms = {
-    zenith: { value: new THREE.Color() }, rim: { value: new THREE.Color() },
-    sun: { value: new THREE.Color() }, cloud: { value: new THREE.Color() },
-    shade: { value: new THREE.Color() }, sunDir: { value: new THREE.Vector3() },
-    time: { value: 0 }, night: { value: 0 }, haze: { value: DAY.haze }
+    ...Object.fromEntries(colors.map(key => [key, { value: new THREE.Color() }])),
+    sunDir: { value: new THREE.Vector3() },
+    time: { value: 0 }, night: { value: 0 }, rays: { value: 0 }, haze: { value: DAY.haze }
   };
   const sky = new THREE.Mesh(new THREE.SphereGeometry(26000, 40, 24), new THREE.ShaderMaterial({
     side: THREE.BackSide, depthWrite: false, uniforms,
@@ -29,7 +29,7 @@ export function buildSky(scene) {
     fragmentShader: `
       varying vec3 ray;
       uniform vec3 zenith, rim, sun, cloud, shade, sunDir;
-      uniform float time, night;
+      uniform float time, night, rays;
       float hash(vec2 p) { return fract(sin(dot(p, vec2(73.74, 221.39))) * 17581.273); }
       float noise(vec2 p) {
         vec2 i=floor(p), f=fract(p);
@@ -41,18 +41,22 @@ export function buildSky(scene) {
       }
       void main() {
         vec3 d=normalize(ray);
-        float h=max(0.,d.y);
         vec3 sky=mix(rim,zenith,smoothstep(-.025,.40,d.y));
         float glare=max(0.,dot(d,sunDir));
         sky+=sun*(pow(glare,26.)*.16+pow(glare,135.)*.31+pow(glare,900.)*.47);
         vec2 p=d.xz/max(.08,d.y+.2)*vec2(3.8,4.7)+vec2(time*.006,0.);
         float layers=fbm(p+vec2(0.,fbm(p*.4)*1.6));
-        float wisps=smoothstep(.47,.69,layers)*smoothstep(.022,.17,h);
+        float wisps=smoothstep(.47,.69,layers)*smoothstep(.022,.17,d.y);
         float edge=clamp((layers-fbm(p-vec2(.14,.10)))*4.+.38,0.,1.);
         vec3 lit=mix(shade,cloud,edge)*(.82+pow(glare,20.)*.45);
         sky=mix(sky,lit,wisps*.90);
+        if (rays > 0.) {
+          float a=atan(d.y-sunDir.y,d.x-sunDir.x);
+          float shaft=pow(.5+.5*cos(a*11.+sin(a*4.)),7.);
+          sky+=sun*(.38*pow(glare,74.)+.24*shaft*pow(glare,45.));
+        }
         sky+=sun*smoothstep(.99965,.99978,glare)*(3.-wisps);
-        float stars=step(.9983,hash(floor(d.xz*830.)))*smoothstep(.24,.72,h)*night;
+        float stars=step(.9983,hash(floor(d.xz*830.)))*smoothstep(.24,.72,d.y)*night;
         sky+=vec3(stars*.28);
         gl_FragColor=vec4(sky,1.);
         #include <tonemapping_fragment>
@@ -67,17 +71,18 @@ export function buildSky(scene) {
   const sunlight = new THREE.DirectionalLight(DAY.sun, DAY.brightness);
   scene.add(hemisphere, sunlight);
 
-  function setLight(dusk) {
+  function setLight(dusk, rays = 0) {
     const light = dusk ? DUSK : DAY;
-    for (const key of ['zenith', 'rim', 'sun', 'cloud', 'shade']) uniforms[key].value.set(light[key]);
+    for (const key of colors) uniforms[key].value.set(light[key]);
     uniforms.sunDir.value.set(...light.direction).normalize();
     uniforms.night.value = Number(dusk);
+    uniforms.rays.value = rays;
     uniforms.haze.value = scene.fog.density = light.haze;
     scene.fog.color.set(light.mist);
     hemisphere.intensity = light.ambient;
     hemisphere.color.set(dusk ? '#8b9ac0' : '#b6ccfa');
-    sunlight.color.set(light.sun);
-    sunlight.intensity = light.brightness;
+    sunlight.color.set(rays ? '#ffca89' : light.sun);
+    sunlight.intensity = light.brightness + rays * .28;
     sunlight.position.copy(uniforms.sunDir.value).multiplyScalar(1000);
   }
   setLight(false);

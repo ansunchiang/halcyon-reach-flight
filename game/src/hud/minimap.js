@@ -106,23 +106,22 @@ export function createFlightCharts(dispatch, minimap) {
   const base = chartTerrain();
   const mini = minimap.getContext('2d');
   const board = dispatch.getContext('2d');
+  const { width, height } = minimap;
   const backdrop = document.createElement('canvas');
-  backdrop.width = minimap.width;
-  backdrop.height = minimap.height;
+  backdrop.width = width;
+  backdrop.height = height;
   const bg = backdrop.getContext('2d');
-  bg.drawImage(base, 0, 0, minimap.width, minimap.height);
+  bg.drawImage(base, 0, 0, width, height);
   bg.fillStyle = '#112c3140';
-  bg.fillRect(0, 0, minimap.width, minimap.height);
-  chartLines(bg, minimap.width, minimap.height, 31);
-  addAirfields(bg, minimap.width, minimap.height, false);
+  bg.fillRect(0, 0, width, height);
+  chartLines(bg, width, height, 31);
+  addAirfields(bg, width, height, false);
 
   function drawDispatch(id) {
     const { width, height } = dispatch;
     board.drawImage(base, 0, 0, width, height);
     chartLines(board, width, height, 64);
-    for (const [index, x] of [19, 83, 147, 211, 275, 339, 403, 467, 531, 595, 659].entries()) {
-      label(board, String(index + 12), x, 17, '#dedbc4', 11);
-    }
+    for (let i = 0; i < 11; i++) label(board, i + 12, 19 + i * 64, 17, '#dedbc4', 11);
     for (const [name, point] of [
       ['Marten Range', { x: -1840, z: -2550 }], ['Tarn Lake', { x: 495, z: -1120 }],
       ['Halcyon Sound', { x: -1100, z: 1060 }], ['Eastern Reach', { x: 1135, z: -115 }]
@@ -176,7 +175,6 @@ export function createFlightCharts(dispatch, minimap) {
   }
 
   function drawMini(plane, objective) {
-    const { width, height } = minimap;
     mini.drawImage(backdrop, 0, 0);
     const [tx, ty] = project(objective, width, height);
     const pin = project(plane, width, height);

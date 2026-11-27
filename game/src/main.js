@@ -37,7 +37,6 @@ let notificationTime = 0;
 let finishDelay = 0;
 let pendingReport = null;
 let requestAction = false;
-let photoRig;
 
 function switchScreen(next) {
   screen = next;
@@ -61,7 +60,7 @@ function launch(mission) {
   audio.transient('ui');
   sortie = beginSortie(mission);
   world.effects.reset();
-  world.setTimeOfDay(Boolean(mission.night));
+  world.setTimeOfDay(mission.night);
   cameras.reset(mission.night ? 'cockpit' : 'chase');
   pendingReport = null;
   finishDelay = notificationTime = 0;
@@ -200,7 +199,6 @@ function paint(dt) {
 }
 
 function runShot(preset) {
-  photoRig = preset.rig;
   element('hud').className = preset.hudClass ?? '';
   const mission = MISSIONS.find(record => record.id === preset.mission);
   sortie = beginSortie(mission);
@@ -211,7 +209,7 @@ function runShot(preset) {
   sortie.airborne = !sortie.plane.grounded;
   time = preset.time;
   input = { ...NEUTRAL, ...preset.controls };
-  world.setTimeOfDay(Boolean(mission.night));
+  world.setTimeOfDay(mission.night, preset.rays);
   cameras.reset(preset.camera);
   dispatch.select(mission);
   switchScreen(preset.screen ?? 'flight');
@@ -233,10 +231,10 @@ element('open-briefing').addEventListener('click', () => {
 });
 element('brief-back').addEventListener('click', () => switchScreen('title'));
 element('resume').addEventListener('click', () => switchScreen('flight'));
-element('pause-restart').addEventListener('click', () => launch(sortie.definition));
-element('pause-dispatch').addEventListener('click', showDispatch);
-element('debrief-restart').addEventListener('click', () => launch(sortie.definition));
-element('debrief-dispatch').addEventListener('click', showDispatch);
+for (const panel of ['pause', 'debrief']) {
+  element(panel + '-restart').addEventListener('click', () => launch(sortie.definition));
+  element(panel + '-dispatch').addEventListener('click', showDispatch);
+}
 document.addEventListener('visibilitychange', () => {
   if (document.hidden && screen === 'flight' && !pendingReport && !preset) switchScreen('pause');
 });
@@ -244,6 +242,7 @@ addEventListener('resize', resize);
 resize();
 const shotName = new URLSearchParams(location.search).get('shot');
 const preset = Object.hasOwn(SHOT_PRESETS, shotName) ? SHOT_PRESETS[shotName] : null;
+const photoRig = preset?.rig;
 if (preset) runShot(preset);
 else startFlightLoop(update, dt => {
   readActions();

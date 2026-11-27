@@ -20,24 +20,23 @@ function aircraftShadow(scene) {
   ink.fillRect(58, 24, 12, 77);
   ink.fillRect(12, 44, 104, 18);
   ink.fillRect(44, 88, 40, 13);
-  const geometry = new THREE.PlaneGeometry(1, 1);
-  geometry.rotateX(-Math.PI / 2);
+  const geometry = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
   const material = new THREE.MeshBasicMaterial({
     color: '#0c121f', map: new THREE.CanvasTexture(canvas), transparent: true, depthWrite: false,
     polygonOffset: true, polygonOffsetFactor: -6
   });
   const patch = new THREE.Mesh(geometry, material);
   scene.add(patch);
-  return (plane, sun, night) => {
+  return (plane, sun, night, rays) => {
     const ray = Math.min(15 + plane.agl * .25, plane.agl / Math.max(.16, sun.y));
     const x = plane.x - sun.x * ray;
     const z = plane.z - sun.z * ray * .33;
     patch.visible = !plane.crashed && plane.agl < 165;
     if (!patch.visible) return;
-    patch.position.set(x, surfaceHeight(x, z) + .20, z);
+    patch.position.set(x, surfaceHeight(x, z) + .2 + rays * .38, z);
     patch.rotation.y = -plane.yaw;
     patch.scale.set(17 + plane.agl * .33, 1, 13 + plane.agl * .30);
-    material.opacity = (night ? .32 : .75) * (1 - plane.agl / 170);
+    material.opacity = (night ? .32 : .75 + rays * .22) * (1 - plane.agl / 170);
   };
 }
 
@@ -65,9 +64,9 @@ export function createArchipelago(canvas) {
   return {
     effects,
     resize(width, height) { renderer.setSize(width, height, false); },
-    setTimeOfDay(value) {
-      night = value;
-      sky.setLight(night);
+    setTimeOfDay(value, rays) {
+      night = !!value;
+      sky.setLight(night, rays);
       forestLight(night);
     },
     paint(sortie, input, camera, dt, time, cockpit) {
@@ -77,7 +76,7 @@ export function createArchipelago(canvas) {
       marks(sortie, time);
       aircraft.update(sortie.plane, input, dt, cockpit);
       cabin(aircraft.root, sortie.plane, cockpit, night);
-      shadow(sortie.plane, sky.uniforms.sunDir.value, night);
+      shadow(sortie.plane, sky.uniforms.sunDir.value, night, sky.uniforms.rays.value);
       effects.update(sortie, time, dt);
       renderer.render(scene, camera);
     }

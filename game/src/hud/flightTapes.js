@@ -113,19 +113,19 @@ function drawVerticalRate(g, x, y, rate) {
   dialText(g, formatted, x + 39.5, y + 32, gold, 16);
 }
 
-export function drawFlightTapes(g, w, h, plane, angle, cockpit, objective, clean) {
+export function drawFlightTapes(g, w, h, plane, angle, cockpit, objective, clean, fire) {
   if (!clean) drawFlightReference(g, w, h, plane, cockpit);
   drawHeading(g, w, plane.yaw, angle);
   if (objective.kind === 'landing') {
     const wind = plane.wind?.x ?? 0;
     const label = (wind >= 0 ? 'W WIND → ' : '← E WIND ') + Math.round(Math.abs(wind) * KNOT) + ' KT';
-    const windY = w > 900 ? 103 : 92;
+    const y = w > 900 ? 103 : 92;
     g.lineWidth = 1;
-    plate(g, w / 2 - 63, windY, 126, 20, 3, '#142831c8', '#bdc9b47f');
-    dialText(g, label, w / 2, windY + 10.5, gold, 10);
+    plate(g, w / 2 - 63, y, 126, 20, 3, '#142831c8', '#bdc9b47f');
+    dialText(g, label, w / 2, y + 10.5, gold, 10);
   }
-  if (clean && cockpit) return;
-  const height = Math.min(h * .30, clean ? 185 : 210);
+  if (fire || clean && cockpit) return;
+  const height = Math.min(h * .3, clean ? 185 : 210);
   const y = Math.max(170, h * .43 - height * .5);
   const width = !clean && w > 900 ? 65 : 55;
   const x = w > 900 ? 32 : 15;

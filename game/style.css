@@ -83,11 +83,12 @@ kbd { color: #f6d29b; background: #173239; border: 1px solid #76998b6e; border-r
   font: 700 12px var(--mono); white-space: nowrap;
 }
 #flight-warning { top: 114px; }
+.shot-fire #flight-warning { display: block; }
 #flight-warning.caution::before { content: ''; display: inline-block; width: 8px; height: 8px; margin-right: 10px;
   border-radius: 50%; background: #ff6b54; box-shadow: 0 0 9px 2px #ff503b; }
-body[data-view="cockpit"] #flight-warning { top: 130px; }
+[data-view=cockpit] #flight-warning { top: 130px; }
 #event-banner { bottom: 176px; }
-body[data-view="cockpit"] #event-banner { bottom: 260px; }
+[data-view=cockpit] #event-banner { bottom: 260px; }
 .title-screen { position: absolute; inset: 0; display: flex; align-items: center; background: linear-gradient(90deg, #0a242bea, #122b30b5 26%, #172e3280 40%, transparent 65%); }
 .title-inner { width: min(45%, 560px); margin-left: clamp(30px, 6.3vw, 130px); padding: 20px 0; }
 .title-inner .eyebrow { display: flex; align-items: center; gap: 16px; }
@@ -160,6 +161,7 @@ body[data-view="cockpit"] #event-banner { bottom: 260px; }
 #debrief-result { color: #dce8d8; font-size: 15px; }
 #debrief { justify-items: end; background: linear-gradient(90deg, transparent 48%, #0a1c277c); }
 #debrief .dialog { width: min(100%, 412px); max-height: 100%; overflow: auto; border-top: 2px solid var(--gold); }
+.shot-landing ~ #debrief .dialog { width: min(100%, 366px); }
 #debrief h1 { font-size: 36px; margin-bottom: 10px; }
 #sortie-records { padding: 0; margin: 0 0 17px; list-style: none; }
 #sortie-records li { display: grid; align-items: baseline; grid-template-columns: 1fr 1fr auto;
@@ -168,8 +170,8 @@ body[data-view="cockpit"] #event-banner { bottom: 260px; }
 #sortie-records small { font-size: 10px; color: var(--muted); }
 #sortie-records strong { font: 700 10px var(--mono); color: var(--muted); }
 #sortie-records [data-medal="GOLD"] strong { color: var(--gold); }
-body[data-screen="debrief"] #instruments, body[data-screen="debrief"] #hud > :not(#event-banner) { visibility: hidden; }
-body[data-screen="debrief"] #event-banner { left: 28px; top: 25px; bottom: auto; transform: none;
+[data-screen=debrief] #instruments, [data-screen=debrief] #hud > :not(#event-banner) { visibility: hidden; }
+[data-screen=debrief] #event-banner { left: 28px; top: 25px; bottom: auto; transform: none;
   font-size: 17px; text-transform: uppercase; }
 #report { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; margin: 18px 0; }
 .report-cell { background: #142a30; border: 1px solid var(--line); border-radius: 3px; min-height: 50px; padding: 8px; }

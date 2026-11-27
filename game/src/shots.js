@@ -2,7 +2,7 @@ import { RAD } from './core/math.js';
 
 export const SHOT_PRESETS = {
   cover: {
-    mission: 'ring', camera: 'chase', time: 38, gate: 3, hudClass: 'shot-clean',
+    mission: 'ring', camera: 'chase', time: 38, gate: 3, rays: 1, hudClass: 'shot-clean',
     rig: { range: 22.1, rise: 9.65, swing: -.13, tilt: -.19 },
     plane: {
       x: 88, y: 117, z: 644, yaw: 3.7 * RAD, roll: .25, pitch: .04, grounded: false,
@@ -20,10 +20,10 @@ export const SHOT_PRESETS = {
     }
   },
   fire: {
-    mission: 'fire', camera: 'chase', time: 17.5, frames: 68, actionFrame: 8,
-    rig: { range: 30, rise: 11, swing: -.37, sight: -.05, tilt: -.255 },
+    mission: 'fire', camera: 'chase', time: 17.5, frames: 76, actionFrame: 8, hudClass: 'shot-clean shot-fire',
+    rig: { range: 32, rise: 17.3, swing: .465, sight: .11, tilt: -.36 },
     plane: {
-      x: 833, y: 97, z: -1897, yaw: 13 * RAD, roll: -.14, pitch: .024, grounded: false,
+      x: 811, y: 82, z: -1935, yaw: 2 * RAD, roll: -.14, pitch: .024, grounded: false,
       speed: 40.5, vy: -.25, throttle: .60, power: .51, gear: false, flaps: 1,
       fuel: 10.4, fuelUsed: 14.6, damage: .29, load: .92, elapsed: 92.7
     },
@@ -31,7 +31,7 @@ export const SHOT_PRESETS = {
   },
   briefing: { mission: 'ring', camera: 'chase', time: 47, screen: 'briefing' },
   touchdown: {
-    mission: 'rescue', camera: 'chase', time: 47, frames: 64, located: true,
+    mission: 'rescue', camera: 'chase', time: 47, frames: 64, located: true, hudClass: 'shot-landing',
     rig: { range: 22, rise: 6.4, swing: .22, sight: -.055, tilt: -.108 },
     plane: { x: 116.5, y: 25.54, z: 110, speed: 32, vy: -1.23, roll: .035, pitch: .063,
       yaw: .005, grounded: false, throttle: .23, power: .23, flaps: 2, fuel: 39.4, fuelUsed: 8.6, elapsed: 167.5 }

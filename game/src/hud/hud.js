@@ -85,10 +85,18 @@ export function createHud(canvas, charts) {
       g.clearRect(0, 0, width, height);
       if (!cockpit) drawInstrumentPanel(g, width, height, plane, false, sortie.definition.night);
       if (!clean) drawWorldMarker(camera, objective, plane);
-      drawFlightTapes(g, width, height, plane, angleDelta(plane.yaw, target), cockpit, objective, clean);
+      drawFlightTapes(g, width, height, plane, angleDelta(plane.yaw, target), cockpit, objective, clean,
+        root.classList.contains('shot-fire'));
       set('mission-title', sortie.definition.name);
       set('objective-name', objective.label);
       set('objective-range', showRange(plane, objective));
+      const warning = plane.stallWarning ? 'STALL · LOWER THE NOSE' :
+        plane.fuel < 12 ? 'LOW FUEL' + (plane.damage >= .25 ? '  /  AIRFRAME DAMAGE' : ' · PLAN A REFUEL STOP') :
+          plane.damage >= .25 ? 'AIRFRAME DAMAGE · REDUCED CONTROL' : '';
+      const caution = set('flight-warning', warning);
+      caution.hidden = !warning;
+      caution.classList.toggle('caution', warning && !plane.stallWarning);
+      set('event-banner', notification).hidden = !notification;
       if (clean) return;
       charts.drawMini(plane, objective);
       set('mission-clock', elapsedLabel(plane.elapsed));
@@ -98,13 +106,6 @@ export function createHud(canvas, charts) {
       set('map-bearing', 'BRG ' + heading(target));
       set('map-camera', cockpit ? 'COCKPIT' : 'CHASE');
       renderSystems(plane);
-      const warning = plane.stallWarning ? 'STALL · LOWER THE NOSE' :
-        plane.fuel < 12 ? 'LOW FUEL' + (plane.damage >= .25 ? '  /  AIRFRAME DAMAGE' : ' · PLAN A REFUEL STOP') :
-          plane.damage >= .25 ? 'AIRFRAME DAMAGE · REDUCED CONTROL' : '';
-      const caution = set('flight-warning', warning);
-      caution.hidden = !warning;
-      caution.classList.toggle('caution', warning && !plane.stallWarning);
-      set('event-banner', notification).hidden = !notification;
     }
   };
 }
