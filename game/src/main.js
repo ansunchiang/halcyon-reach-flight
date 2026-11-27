@@ -37,6 +37,7 @@ let notificationTime = 0;
 let finishDelay = 0;
 let pendingReport = null;
 let requestAction = false;
+let photoRig;
 
 function switchScreen(next) {
   screen = next;
@@ -144,8 +145,8 @@ function advanceFlight(dt) {
     }
     finishDelay -= dt;
     if (finishDelay <= 0) {
-      dispatch.save(definition.id, pendingReport);
-      renderFlightReport(pendingReport, definition);
+      if (!photoRig) dispatch.save(definition.id, pendingReport);
+      renderFlightReport(pendingReport, definition, dispatch.medal);
       switchScreen('debrief');
     }
     return;
@@ -159,12 +160,12 @@ function advanceFlight(dt) {
   requestAction = false;
   if (!outcome) return;
   if (outcome.drop) world.effects.drop(plane, outcome.finish);
-  if (outcome.cue && event?.type !== 'touchdown') say(outcome.cue);
+  if (outcome.cue && event?.type !== 'touchdown' && !sortie.dropQuality) say(outcome.cue);
   if (outcome.cue && event?.type === 'touchdown' && !outcome.finish) say(notification + ' · ' + outcome.cue, 4);
   if (outcome.cue && definition.id === 'ring') audio.transient('gate');
   if (outcome.finish) {
     pendingReport = scoreSortie(definition, sortie, plane, outcome.crash);
-    finishDelay = outcome.crash ? 1.55 : outcome.drop ? 2.5 : 2.1;
+    finishDelay = outcome.crash ? 1.55 : outcome.drop ? 2.5 : photoRig ? .56 : 2.1;
     if (outcome.crash) {
       cameras.reset('chase');
       say('Crashed: ' + outcome.crash.reason + ' at ' + outcome.crash.speed + ' kt', 4);
@@ -190,7 +191,7 @@ function paint(dt) {
     preview.z = titleRoute.z - Math.sin(time * .18) * 53;
     preview.roll = .115 + Math.sin(time * .60) * .083;
   }
-  cameras.update(shown.plane, dt, menu);
+  cameras.update(shown.plane, dt, menu, photoRig);
   world.paint(shown, input, cameras.camera, screen === 'pause' ? 0 : dt, time, cockpit);
   document.body.dataset.view = cockpit ? 'cockpit' : 'chase';
   if (!menu) hud.draw(sortie, cameras.camera, cockpit, notificationTime > 0 ? notification : '');
@@ -199,10 +200,13 @@ function paint(dt) {
 }
 
 function runShot(preset) {
+  photoRig = preset.rig;
   const mission = MISSIONS.find(record => record.id === preset.mission);
   sortie = beginSortie(mission);
   if (preset.plane) sortie.plane = createFlight(preset.plane);
   if (preset.gate !== undefined) sortie.gate = preset.gate;
+  if (preset.actionFrame !== undefined) sortie.scooped = sortie.plane.load >= .65;
+  if (preset.located) sortie.found = sortie.located = true;
   sortie.airborne = !sortie.plane.grounded;
   time = preset.time;
   input = { ...NEUTRAL, ...preset.controls };
@@ -212,7 +216,8 @@ function runShot(preset) {
   switchScreen(preset.screen ?? 'flight');
   let frames = 0;
   function expose() {
-    if (!preset.screen) advanceFlight(FLIGHT_STEP);
+    if (frames === preset.actionFrame) requestAction = true;
+    if (screen === 'flight') advanceFlight(FLIGHT_STEP);
     paint(1 / 60);
     if (++frames < (preset.frames ?? 20)) requestAnimationFrame(expose);
     else window.__shotReady = true;
@@ -232,12 +237,12 @@ element('pause-dispatch').addEventListener('click', showDispatch);
 element('debrief-restart').addEventListener('click', () => launch(sortie.definition));
 element('debrief-dispatch').addEventListener('click', showDispatch);
 document.addEventListener('visibilitychange', () => {
-  if (document.hidden && screen === 'flight' && !pendingReport && !new URLSearchParams(location.search).has('shot')) switchScreen('pause');
+  if (document.hidden && screen === 'flight' && !pendingReport && !preset) switchScreen('pause');
 });
 addEventListener('resize', resize);
 resize();
-const preset = Object.hasOwn(SHOT_PRESETS, new URLSearchParams(location.search).get('shot'))
-  ? SHOT_PRESETS[new URLSearchParams(location.search).get('shot')] : null;
+const shotName = new URLSearchParams(location.search).get('shot');
+const preset = Object.hasOwn(SHOT_PRESETS, shotName) ? SHOT_PRESETS[shotName] : null;
 if (preset) runShot(preset);
 else startFlightLoop(update, dt => {
   readActions();

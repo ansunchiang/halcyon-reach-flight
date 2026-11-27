@@ -22,7 +22,7 @@ function circle(g, radius, color, stroke) {
   if (stroke) { g.strokeStyle = stroke; g.stroke(); }
 }
 
-function line(g, x1, y1, x2, y2, color, weight = 1) {
+export function line(g, x1, y1, x2, y2, color, weight = 1) {
   g.beginPath();
   g.moveTo(x1, y1);
   g.lineTo(x2, y2);
@@ -52,13 +52,20 @@ function bezel(g, x, y, r, night) {
   circle(g, r + 4, '#101819', '#080f13');
   g.lineWidth = 1.1;
   circle(g, r + 1, steel, '#53615a');
-  const interior = g.createRadialGradient(-r * .32, -r * .24, r * .17, 0, 0, r);
-  interior.addColorStop(0, night ? '#2b2422' : '#203833');
-  interior.addColorStop(.84, '#111c20');
-  interior.addColorStop(1, '#10191d');
+  const interior = g.createRadialGradient(0, 0, r * .12, 0, 0, r);
+  interior.addColorStop(0, '#10191d');
+  interior.addColorStop(.65, night ? '#352a24' : '#263838');
+  interior.addColorStop(1, night ? '#60402a' : '#394645');
   circle(g, r - 5, interior, '#6e7761');
   const s = r * .72;
   for (const [dx, dy] of [[s, s], [s, -s], [-s, s], [-s, -s]]) screw(g, dx, dy);
+}
+
+function glassSheen(g, r) {
+  g.beginPath();
+  g.ellipse(-r * .33, -r * .67, r * .31, r * .075, -.4, 0, TAU);
+  g.fillStyle = '#e1edfa39';
+  g.fill();
 }
 
 function needle(g, angle, r, ink, width = 3.3) {
@@ -83,30 +90,30 @@ export function drawGauge(g, at, r, options) {
   bezel(g, at[0], at[1], r, night);
   const start = -135 * RAD;
   const sweep = 270 * RAD;
-  for (let i = 0; i <= ticks * 4; i++) {
-    const part = i / (ticks * 4);
+  for (let i = 0; i <= ticks * 5; i++) {
+    const part = i / (ticks * 5);
     const a = start + sweep * part;
-    const primary = i % 4 === 0;
+    const primary = i % 5 === 0;
     g.save();
     g.rotate(a);
-    line(g, 0, -r + 8, 0, -r + (primary ? 15 : 11), primary ? amber : '#99a087', primary ? 1.38 : .8);
+    line(g, 0, -r * .87, 0, -r * (primary ? .73 : .81), primary ? amber : '#99a087', primary ? 1.65 : .8);
     g.restore();
     if (primary) {
       const n = min + (max - min) * part;
-      dialText(g, trim ? trim(n) : Math.round(n), Math.sin(a) * (r - 22),
-        -Math.cos(a) * (r - 22), mint, r >= 64 ? 10 : 8);
+      dialText(g, trim ? trim(n) : Math.round(n), Math.sin(a) * r * .61,
+        -Math.cos(a) * r * .61, mint, r >= 59 ? 12 : 9);
     }
   }
-  dialText(g, label, 0, -r * .39, amber, r >= 62 ? 10 : 8.5);
-  dialText(g, unit, 0, -r * .19, '#afb3a1', 7);
+  dialText(g, label + ' ' + unit, 0, -r * .27, amber, r >= 59 ? 10 : 8);
   if (secondary !== null) needle(g, start + sweep * clamp(secondary, 0, 1), r * .51, '#9cbec1', 2.7);
   const a = start + sweep * clamp((value - min) / (max - min), 0, 1);
   needle(g, a, r - 13, '#fff0cc');
   circle(g, 4.5, '#b6925b', '#4f4735');
+  glassSheen(g, r);
   if (digits !== undefined) {
     g.lineWidth = 1;
-    plate(g, -r * .36, r * .39, r * .72, r * .32, 3, '#112528', '#759087ad');
-    dialText(g, digits, 0, r * .55, night ? '#ffd58c' : '#d4edc7', r >= 62 ? 13 : 11);
+    plate(g, -r * .40, r * .37, r * .80, r * .33, 3, '#112528', '#759087ad');
+    dialText(g, digits, 0, r * .54, night ? '#ffd58c' : '#d4edc7', r >= 59 ? 15 : 12);
   }
   g.restore();
 }
@@ -156,6 +163,7 @@ export function drawAttitude(g, at, r, pitch, roll, night) {
   line(g, r * .29, 0, r * .60, 0, '#ffd487', 3);
   circle(g, 3.8, '#ffd487', '#1a2a2b');
   dialText(g, 'ATTITUDE', 0, r * .63, '#fee6b7', 8);
+  glassSheen(g, r);
   g.restore();
 }
 
@@ -166,15 +174,13 @@ export function drawCompass(g, at, r, course, night, label) {
     g.save();
     g.rotate(angle);
     line(g, 0, -r + 7, 0, -r + (i % 3 === 0 ? 16 : 12), '#ebd6a3', i % 3 === 0 ? 1.5 : .8);
-    if (i % 3 === 0) {
-      const name = i % 9 === 0 ? ['N', 'E', 'S', 'W'][i / 9] : i;
-      dialText(g, name, 0, -r + 22, '#dce9ba', i % 9 === 0 ? 11 : 8);
-    }
+    if (i % 9 === 0) dialText(g, ['N', 'E', 'S', 'W'][i / 9], 0, -r * .59, '#dce9ba', 12);
     g.restore();
   }
   line(g, 0, -r * .57, 0, r * .40, '#e3b679', 2.2);
   line(g, -r * .32, -r * .04, r * .32, -r * .04, '#e3b679', 2.7);
   line(g, -r * .14, r * .30, r * .14, r * .30, '#e3b679', 2);
+  glassSheen(g, r);
   plate(g, -r * .36, r * .44, r * .72, r * .28, 3, '#12282a', '#88a4919c');
   dialText(g, label, 0, r * .58, '#f7d6a2', 12);
   g.restore();

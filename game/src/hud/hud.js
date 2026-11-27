@@ -90,7 +90,7 @@ export function createHud(canvas, charts) {
       root.dataset.heading = heading(plane.yaw);
       root.dataset.grounded = String(plane.grounded);
       g.clearRect(0, 0, width, height);
-      drawInstrumentPanel(g, width, height, plane, cockpit, Boolean(sortie.definition.night));
+      if (!cockpit) drawInstrumentPanel(g, width, height, plane, false, Boolean(sortie.definition.night));
       drawWorldMarker(camera, objective, plane);
       drawFlightTapes(g, width, height, plane, angleDelta(plane.yaw, target), cockpit, objective);
       charts.drawMini(plane, objective);
@@ -108,6 +108,7 @@ export function createHud(canvas, charts) {
         plane.fuel < 12 ? 'LOW FUEL' + (plane.damage >= .25 ? '  /  AIRFRAME DAMAGE' : ' · PLAN A REFUEL STOP') :
           plane.damage >= .25 ? 'AIRFRAME DAMAGE · REDUCED CONTROL' : '';
       element('flight-warning').hidden = !warning;
+      element('flight-warning').classList.toggle('caution', Boolean(warning) && !plane.stallWarning);
       element('event-banner').hidden = !notification;
       set('flight-warning', warning);
       set('event-banner', notification || '');

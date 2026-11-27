@@ -1,18 +1,9 @@
 import { clamp, heading, KNOT, RAD } from '../core/math.js';
-import { dialText, plate } from './dials.js';
+import { dialText, line, plate } from './dials.js';
 
 const ink = '#e9f2d7';
 const mint = '#c5ead1';
 const gold = '#f8cf93';
-
-function line(g, x, y, u, v, color, width = 1) {
-  g.beginPath();
-  g.moveTo(x, y);
-  g.lineTo(u, v);
-  g.lineWidth = width;
-  g.strokeStyle = color;
-  g.stroke();
-}
 
 function pointer(g, x, y, size, color, turn = 0) {
   g.save();
@@ -30,12 +21,12 @@ function pointer(g, x, y, size, color, turn = 0) {
 
 function drawHeading(g, w, yaw, target) {
   const center = w / 2;
-  const width = Math.min(348, w * .29);
+  const width = Math.min(322, w * .28);
   const x = center - width / 2;
   const y = w > 900 ? 24 : 13;
   const unit = width / 91;
   const course = yaw / RAD;
-  plate(g, x, y, width, 52, 5, '#112427c7', '#cbdbbd8c');
+  plate(g, x, y, width, 50, 5, '#112427a8', '#cbdbbd8c');
   g.save();
   plate(g, x + 3, y, width - 6, 52, 4);
   g.clip();
@@ -62,7 +53,7 @@ function drawTape(g, settings) {
   const step = speed ? 5 : 25;
   const period = speed ? 3.6 : .68;
   g.lineWidth = 1;
-  plate(g, x, y, width, height, 4, '#123133b4', '#bddaca84');
+  plate(g, x, y, width, height, 4, '#123133a3', '#bddaca84');
   g.save();
   plate(g, x, y + 25, width, height - 50, 1);
   g.clip();
@@ -125,7 +116,7 @@ function drawVerticalRate(g, x, y, rate) {
 }
 
 export function drawFlightTapes(g, w, h, plane, angle, cockpit, objective) {
-  const height = Math.min(h * .31, 226);
+  const height = Math.min(h * .30, 210);
   const y = Math.max(170, h * .43 - height * .5);
   const width = w > 900 ? 65 : 55;
   const x = w > 900 ? 32 : 15;

@@ -27,7 +27,7 @@ export function createFlightCamera() {
       lookYaw = clamp(lookYaw - dx * .0055, -2.5, 2.5);
       lookPitch = clamp(lookPitch - dy * .0048, -.77, .85);
     },
-    update(plane, dt, title) {
+    update(plane, dt, title, rig) {
       const cockpit = this.mode === 'cockpit';
       pose.set(plane.pitch, -plane.yaw, -plane.roll);
       orientation.setFromEuler(pose);
@@ -44,13 +44,15 @@ export function createFlightCamera() {
         camera.rotateX(lookPitch - .06);
       } else {
         const yaw = -plane.yaw + lookYaw;
-        const range = title ? 48 : 27.0;
-        offset.set(Math.sin(yaw) * range, title ? 16 : 11.2, Math.cos(yaw) * range);
+        const orbit = yaw + (rig?.swing ?? 0);
+        const range = rig?.range ?? (title ? 48 : 27);
+        offset.set(Math.sin(orbit) * range, rig?.rise ?? (title ? 16 : 11.2), Math.cos(orbit) * range);
         target.set(plane.x, plane.y, plane.z).add(offset);
         target.y = Math.max(target.y, surfaceHeight(target.x, target.z) + 3);
         if (!initialized) camera.position.copy(target);
         else camera.position.lerp(target, 1 - Math.exp(-5.9 * dt));
-        view.set(-Math.sin(yaw), clamp(plane.vy * .004 - .184 + lookPitch, -.86, .79), -Math.cos(yaw));
+        const sight = yaw + (rig?.sight ?? 0);
+        view.set(-Math.sin(sight), clamp(plane.vy * .004 + (rig?.tilt ?? -.184) + lookPitch, -.86, .79), -Math.cos(sight));
         camera.lookAt(target.copy(camera.position).add(view));
         camera.rotateZ(smooth(0, -plane.roll * .15, 15, .13));
       }

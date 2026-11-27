@@ -46,6 +46,21 @@ function glassCabin(frame, glass, cream) {
   return g;
 }
 
+function propBlur() {
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = 96;
+  const ink = canvas.getContext('2d');
+  ink.translate(48, 48);
+  for (let ring = 0; ring < 8; ring++) {
+    ink.beginPath();
+    ink.arc(0, 0, 17 + ring * 3.8, ring * .33, ring * .33 + 5.1);
+    ink.lineWidth = ring === 7 ? 2.5 : 3;
+    ink.strokeStyle = ring === 7 ? '#ffe6b2c4' : '#b5c8df40';
+    ink.stroke();
+  }
+  return new THREE.CanvasTexture(canvas);
+}
+
 export function buildPetrel(scene, glow) {
   const root = new THREE.Group();
   root.rotation.order = 'YXZ';
@@ -54,7 +69,8 @@ export function buildPetrel(scene, glow) {
   const teal = new THREE.MeshStandardMaterial({ color: '#234655', roughness: .47, metalness: .2, side: THREE.DoubleSide });
   const black = new THREE.MeshLambertMaterial({ color: '#23282d' });
   const metal = new THREE.MeshStandardMaterial({ color: '#9ca3a0', roughness: .29, metalness: .49 });
-  const glass = new THREE.MeshStandardMaterial({ color: '#305e76', roughness: .21, metalness: .32, side: THREE.DoubleSide });
+  const glass = new THREE.MeshStandardMaterial({ color: '#4386ac', roughness: .17, metalness: .19,
+    side: THREE.DoubleSide, transparent: true, opacity: .38, depthWrite: false });
   const body = loft([
     [-3.34, .37, .36, -.04], [-2.85, .63, .51, -.045], [-1.9, .77, .58, -.10],
     [-.42, .88, .65, -.09], [1.03, .76, .62, -.07], [2.36, .50, .43, -.025],
@@ -63,6 +79,13 @@ export function buildPetrel(scene, glow) {
   root.add(body);
   const cabin = glassCabin(teal, glass, cream);
   root.add(cabin);
+  const pilot = new THREE.Mesh(new THREE.SphereGeometry(.205, 10, 8),
+    new THREE.MeshLambertMaterial({ color: '#e3b488' }));
+  pilot.position.set(-.25, .98, -.56);
+  pilot.scale.set(.93, 1.18, .96);
+  root.add(pilot);
+  box(root, teal, .42, .42, .29, -.25, .61, -.47);
+  tube(root, black, .11, [-.46, 1.015, -.53], [-.05, 1.015, -.53], .11, 10);
   const wing = box(root, [cream, cream, paintPetrelWing(), orange, teal, orange], 13.7, .25, 2.35, 0, 1.43, -.32);
   wing.rotation.x = .025;
   box(root, teal, 13.55, .085, .15, 0, 1.42, -1.55);
@@ -87,6 +110,7 @@ export function buildPetrel(scene, glow) {
     for (const offset of [-.09, .09]) {
       box(root, black, .018, .05, .68, side * .638, -.13 + offset, -2.38);
     }
+    tube(root, black, .057, [side * .66, -.43, -2.47], [side * .79, -.38, -1.87], .028);
   }
   const tail = box(root, cream, 4.85, .14, 1.12, 0, .18, 3.91);
   tail.rotation.x = -.042;
@@ -118,6 +142,10 @@ export function buildPetrel(scene, glow) {
     tube(gear, teal, .07, [side * .36, -.53, .13], [side * 1.39, -1.10, -.83]);
     tube(gear, black, .42, [side * 1.22, -1.08, -.83], [side * 1.58, -1.08, -.83], .42, 20);
     tube(gear, metal, .185, [side * 1.58, -1.08, -.83], [side * 1.60, -1.08, -.83], .185, 12);
+    const spat = new THREE.Mesh(new THREE.SphereGeometry(1, 10, 6), orange);
+    spat.position.set(side * 1.40, -.91, -.91);
+    spat.scale.set(.23, .25, .53);
+    gear.add(spat);
   }
   tube(gear, metal, .045, [0, -.08, 3.9], [0, -.60, 4.55]);
   tube(gear, black, .167, [-.10, -.63, 4.52], [.10, -.63, 4.52], .167, 14);
@@ -131,8 +159,8 @@ export function buildPetrel(scene, glow) {
     blade.rotation.z = side > 0 ? -.17 : .17;
     box(prop, cream, .14, .12, .07, side * .09, side * 1.38, 0);
   }
-  const disc = new THREE.Mesh(new THREE.CircleGeometry(1.48, 40), new THREE.MeshBasicMaterial({
-    color: '#c7bdd4', transparent: true, opacity: .17, side: THREE.DoubleSide, depthWrite: false
+  const disc = new THREE.Mesh(new THREE.PlaneGeometry(3.03, 3.03), new THREE.MeshBasicMaterial({
+    map: propBlur(), transparent: true, opacity: .7, side: THREE.DoubleSide, depthWrite: false
   }));
   disc.position.set(0, -.04, -3.51);
   root.add(prop, disc);
@@ -150,7 +178,8 @@ export function buildPetrel(scene, glow) {
       root.rotation.set(plane.pitch, -plane.yaw, -plane.roll, 'YXZ');
       gear.visible = plane.gear;
       prop.rotation.z += dt * (17 + plane.power * 88);
-      disc.material.opacity = .06 + plane.power * .17;
+      disc.rotation.z = prop.rotation.z * .21;
+      disc.material.opacity = .27 + plane.power * .68;
       elevator.rotation.x = input.pitch * .37;
       rudder.rotation.y = input.rudder * .31;
       for (const { flap, aileron, side } of flightSurfaces) {

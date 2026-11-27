@@ -13,7 +13,7 @@ export function buildHarbor(scene, glow) {
   const wall = new THREE.MeshLambertMaterial({ color: '#9d9a87' });
   const timber = new THREE.MeshLambertMaterial({ color: '#867057' });
   const window = new THREE.MeshBasicMaterial({ color: '#e5b46f' });
-  const road = new THREE.MeshLambertMaterial({ color: '#8e826a', side: THREE.DoubleSide });
+  const road = new THREE.MeshLambertMaterial({ color: '#a1957c', side: THREE.DoubleSide });
   const hutRoof = new THREE.CylinderGeometry(1, 1, 1, 3).rotateY(Math.PI / 2).rotateX(Math.PI / 2);
   const harborLights = [];
   const group = new THREE.Group();
@@ -41,6 +41,9 @@ export function buildHarbor(scene, glow) {
   const artery = [];
   for (let z = 485; z >= -860; z -= 14) artery.push([382 + Math.sin(z / 177) * 55, z]);
   roadRibbon(artery, 6.3);
+  const link = [];
+  for (let x = 185; x <= 410; x += 10) link.push([x, 84 + Math.sin((x - 185) / 103) * 28]);
+  roadRibbon(link, 5.5);
   for (let street = 0; street < 4; street++) {
     const z = 197 + street * 61;
     const points = [];

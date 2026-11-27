@@ -38,7 +38,7 @@ canvas { display: block; }
 }
 .glass, .objective {
   border: 1px solid var(--line);
-  background: linear-gradient(146deg, #102327e8, #101a22da 80%);
+  background: linear-gradient(146deg, #102327d9, #101a22b8 80%);
   box-shadow: 0 10px 26px #07121425, inset 0 1px #e6ecd918;
 }
 .flight-id { display: flex; gap: 11px; align-items: center; position: absolute; left: 28px; top: 25px; text-shadow: 0 2px 4px #26343b; }
@@ -46,7 +46,7 @@ canvas { display: block; }
 .flight-id small { display: block; color: #eef3dc; font: 600 10px var(--mono); letter-spacing: .13em; margin-top: 4px; }
 .flight-id small i { display: inline-block; width: 9px; height: 1px; margin: 0 4px 3px; background: #e8d4a8; }
 .objective {
-  position: absolute; top: 25px; right: 27px; width: 258px; padding: 14px 16px 12px;
+  position: absolute; top: 25px; right: 27px; width: 246px; padding: 12px 14px 11px;
   border-radius: 3px 3px 12px 3px; border-top: 2px solid var(--gold);
 }
 .objective h2 { margin: 6px 0 6px; font: 600 29px/.98 var(--serif); }
@@ -56,7 +56,7 @@ canvas { display: block; }
 .objective p { font-size: 11px; color: #c3d3c6; margin: 5px 0 9px; line-height: 1.36; }
 .mission-foot { display: flex; align-items: center; gap: 7px; padding-top: 8px; border-top: 1px solid #abc0a941; color: var(--mint); }
 .mission-foot i { width: 6px; height: 6px; background: var(--gold); border-radius: 50%; box-shadow: 0 0 8px #f2c58c; }
-.systems { position: absolute; left: 27px; bottom: 39px; width: 222px; padding: 11px 12px 9px; border-radius: 4px 4px 7px 4px; }
+.systems { position: absolute; left: 27px; bottom: 39px; width: 207px; padding: 9px 11px 8px; border-radius: 4px 4px 7px 4px; }
 .systems .micro { margin-bottom: 9px; }
 .sys-row { display: grid; align-items: center; grid-template-columns: 53px 1fr 41px; gap: 5px; margin: 5px 0; font: 600 11px var(--mono); color: #c9d7ce; }
 .sys-row b { text-align: right; color: var(--paper); white-space: nowrap; }
@@ -65,7 +65,7 @@ canvas { display: block; }
 .meter.orange i { background: linear-gradient(90deg, #b75640, #ffad70); }
 .sys-foot { margin-top: 10px; padding-top: 6px; border-top: 1px solid var(--line); letter-spacing: .04em; display: flex; gap: 9px; }
 .sys-foot span { white-space: nowrap; }
-.map-pod { position: absolute; right: 27px; bottom: 39px; width: 208px; padding: 8px 8px 7px; border-radius: 4px 4px 8px 4px; }
+.map-pod { position: absolute; right: 27px; bottom: 39px; width: 192px; padding: 8px; border-radius: 4px 4px 8px 4px; }
 .map-pod canvas { width: 100%; height: auto; margin: 7px 0; border: 1px solid #b7d9af69; }
 .hud-keys { position: absolute; bottom: 12px; left: 28px; color: #e3ecd8; text-shadow: 0 2px 3px #102728; }
 .hud-keys i { display: inline-block; width: 7px; }
@@ -76,6 +76,8 @@ kbd { color: #f6d29b; background: #173239; border: 1px solid #76998b6e; border-r
   font: 700 12px var(--mono); white-space: nowrap;
 }
 #flight-warning { top: 114px; }
+#flight-warning.caution::before { content: ''; display: inline-block; width: 8px; height: 8px; margin-right: 10px;
+  border-radius: 50%; background: #ff6b54; box-shadow: 0 0 9px 2px #ff503b; }
 body[data-view="cockpit"] #flight-warning { top: 130px; }
 #event-banner { bottom: 176px; }
 body[data-view="cockpit"] #event-banner { bottom: 260px; }
@@ -148,8 +150,21 @@ body[data-view="cockpit"] #event-banner { bottom: 260px; }
 .dialog-tip { font-size: 12px; color: var(--muted); margin: 16px 0 0; }
 #debrief-kicker { color: var(--gold); }
 #debrief-result { color: #dce8d8; font-size: 15px; }
+#debrief { justify-items: end; background: linear-gradient(90deg, transparent 48%, #0a1c277c); }
+#debrief .dialog { width: min(100%, 412px); max-height: 100%; overflow: auto; border-top: 2px solid var(--gold); }
+#debrief h1 { font-size: 36px; margin-bottom: 10px; }
+#sortie-records { padding: 0; margin: 0 0 17px; list-style: none; }
+#sortie-records li { display: grid; align-items: baseline; grid-template-columns: 1fr 1fr auto;
+  gap: 6px; border-top: 1px solid var(--line); padding: 6px 0; }
+#sortie-records b { font: 600 15px var(--serif); }
+#sortie-records small { font-size: 10px; color: var(--muted); }
+#sortie-records strong { font: 700 10px var(--mono); color: var(--muted); }
+#sortie-records [data-medal="GOLD"] strong { color: var(--gold); }
+body[data-screen="debrief"] #instruments, body[data-screen="debrief"] #hud > :not(#event-banner) { visibility: hidden; }
+body[data-screen="debrief"] #event-banner { left: 28px; top: 25px; bottom: auto; transform: none;
+  font-size: 17px; text-transform: uppercase; }
 #report { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; margin: 18px 0; }
-.report-cell { background: #142a30; border: 1px solid var(--line); border-radius: 3px; min-height: 63px; padding: 9px; }
+.report-cell { background: #142a30; border: 1px solid var(--line); border-radius: 3px; min-height: 50px; padding: 8px; }
 .report-cell small { display: block; color: var(--mint); text-transform: uppercase; font: 700 9px var(--mono); letter-spacing: .04em; }
 .report-cell b { display: block; margin-top: 5px; font: 700 17px var(--mono); }
 @media (min-width: 1350px) {

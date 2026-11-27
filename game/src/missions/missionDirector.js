@@ -50,6 +50,7 @@ export function activeObjective(sortie) {
     return { ...gate, label: 'Gate ' + Math.min(sortie.gate + 1, 8) + '/8', detail: sortie.missed || 'Cross the illuminated gate', kind: 'gate' };
   }
   if (id === 'fire') {
+    if (sortie.dropQuality > 0) return { ...FIRE_TARGET, detail: 'Water released on the flame line', kind: 'fire' };
     return plane.load >= .65
       ? { ...FIRE_TARGET, detail: 'Release water over the flame line', kind: 'fire' }
       : { ...LAKE_TARGET, detail: 'Gear up · skim the lake at 2–11 m', kind: 'lake' };
@@ -88,7 +89,7 @@ export function showRange(plane, objective) {
 export function missionMeasure(sortie) {
   const { plane, definition } = sortie;
   if (definition.id === 'ring') return Math.min(8, sortie.gate) + ' / 8 GATES';
-  if (definition.id === 'fire') return Math.round(plane.load * 100) + '% WATER';
+  if (definition.id === 'fire') return sortie.dropQuality > 0 ? 'DROP ON TARGET' : Math.round(plane.load * 100) + '% WATER';
   if (definition.id === 'rescue') return sortie.located ? 'RETURN TO BASE' : Math.floor(clamp(Math.abs(sortie.orbit) / (245 * RAD), 0, 1) * 100) + '% FIX';
   if (!plane.wind) return 'READY';
   if (definition.night) return Math.round(Math.abs(plane.wind.x) * KNOT) + ' KT CROSSWIND →';

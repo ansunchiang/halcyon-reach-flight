@@ -2,5 +2,5 @@
   { "name": "1-cover-chase.jpg", "query": "?shot=cover" },
   { "name": "2-cockpit-approach.jpg", "query": "?shot=approach" },
   { "name": "3-fire-watch.jpg", "query": "?shot=fire" },
-  { "name": "4-briefing.jpg", "query": "?shot=briefing" }
+  { "name": "4-debrief-touchdown.jpg", "query": "?shot=touchdown" }
 ]

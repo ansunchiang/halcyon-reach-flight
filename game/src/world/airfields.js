@@ -101,7 +101,7 @@ export function buildRunwayLights(group, field, texture) {
       }
     }
     for (let x = -38; x <= 38; x += 7.6) lamp(x, half + 110, '#fff3d2', 8, 2);
-    for (let i = 0; i < 4; i++) papi.push(lamp(-edge - 10 - i * 5.7, half - 89, '#ff3e3e', 11));
+    for (let i = 0; i < 4; i++) papi.push(lamp(-edge - 10 - i * 8, half - 89, '#ff3e3e', 14, 1.5));
   }
   return function updateLights(plane, dusk) {
     const range = fieldOffset(field, plane.x, plane.z).along;

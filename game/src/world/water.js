@@ -6,7 +6,7 @@ export function buildWater(scene, sky) {
   const material = new THREE.ShaderMaterial({
     uniforms: {
       time: sky.uniforms.time, sunDir: sky.uniforms.sunDir,
-      sun: sky.uniforms.sun, rim: sky.uniforms.rim, night: sky.uniforms.night
+      sun: sky.uniforms.sun, rim: sky.uniforms.rim, night: sky.uniforms.night, haze: sky.uniforms.haze
     },
     vertexShader: `
       attribute float depth;
@@ -18,7 +18,7 @@ export function buildWater(scene, sky) {
         gl_Position=projectionMatrix*viewMatrix*vec4(point,1.);
       }`,
     fragmentShader: `
-      uniform float time, night;
+      uniform float time, night, haze;
       uniform vec3 sunDir, sun, rim;
       varying vec3 point;
       varying float bottom;
@@ -31,19 +31,21 @@ export function buildWater(scene, sky) {
         vec3 n=normalize(vec3(cos(a)*.034+cos(c)*.019*fine,1.,cos(b)*.042+cos(c)*.012*fine));
         vec3 view=normalize(cameraPosition-point);
         float atmosphere=pow(1.-max(0.,dot(view,n)),4.);
-        vec3 deep=mix(vec3(.028,.175,.23),vec3(.030,.064,.103),night);
-        vec3 shallow=mix(vec3(.045,.38,.34),vec3(.064,.154,.176),night);
+        vec3 deep=mix(vec3(.016,.078,.124),vec3(.030,.064,.103),night);
+        vec3 shallow=mix(vec3(.039,.23,.22),vec3(.064,.154,.176),night);
         vec3 col=mix(shallow,deep,smoothstep(1.,30.,bottom));
         col=mix(col,rim,atmosphere*.37);
         float flash=pow(max(0.,dot(reflect(-sunDir,n),view)),96.);
-        col+=sun*flash*(.44+.24*sin(c));
+        col+=sun*flash*(.70+.37*sin(c));
         col+=.017*sin(a)*sin(b)+.008*sin(c)*fine;
-        float breakers=1.-smoothstep(.13,.59,abs(bottom-2.6-sin(a)*1.45));
-        float ripples=1.-smoothstep(.20,.56,abs(bottom-6.3-sin(b)*1.1));
-        col=mix(col,vec3(.72,.83,.77),max(breakers*.72,ripples*.38)*(.78+.22*sin(b)));
-        float horizon=1.-exp(-pow(distance(cameraPosition,point)*.00021,2.));
+        float breakers=1.-smoothstep(.08,.43,abs(bottom-1.52-sin(a)*.77));
+        float ripples=1.-smoothstep(.10,.44,abs(bottom-4.7-sin(b)*1.06));
+        float foam = (.5+.5*sin(b+sin(c*.41)))*.44+.52;
+        col=mix(col,vec3(.66,.76,.72),max(breakers*.70,ripples*.30)*foam);
+        float horizon=1.-exp(-pow(distance(cameraPosition,point)*haze,2.));
         col=mix(col,rim,horizon*.69);
         gl_FragColor=vec4(col,1.);
+        #include <tonemapping_fragment>
         #include <colorspace_fragment>
       }`
   });

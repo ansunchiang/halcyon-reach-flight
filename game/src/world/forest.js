@@ -69,11 +69,11 @@ export function buildForest(scene, glow) {
     if (!groves.has(cell)) groves.set(cell, []);
     groves.get(cell).push({ x, y, z, h: height });
     if (slope < 2.8 && shadeCount < 7600) {
-      const px = x + height * .52;
-      const pz = z - height * .12;
+      const px = x - height * .51;
+      const pz = z + height * 1.24;
       object.position.set(px, elevation(px, pz) + .36, pz);
       object.scale.set(height * 2.6, 1, height * .69);
-      object.rotation.set(0, .24, 0);
+      object.rotation.set(0, 1.18, 0);
       object.updateMatrix();
       shadows.setMatrixAt(shadeCount++, object.matrix);
     }

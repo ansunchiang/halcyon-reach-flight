@@ -28,9 +28,32 @@ function makePuff() {
   return texture;
 }
 
+function flameTexture() {
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = 64;
+  const ink = canvas.getContext('2d');
+  const heat = ink.createLinearGradient(0, 60, 0, 8);
+  heat.addColorStop(0, '#ffd78100');
+  heat.addColorStop(.23, '#ffeeb2');
+  heat.addColorStop(.58, '#ff7029');
+  heat.addColorStop(1, '#f8441200');
+  ink.fillStyle = heat;
+  for (const [x, tip] of [[12, 26], [23, 10], [34, 18], [42, 7], [53, 30]]) {
+    ink.beginPath();
+    ink.moveTo(x - 7, 61);
+    ink.bezierCurveTo(x - 16, 43, x + 11, 27, x - 3, tip);
+    ink.bezierCurveTo(x + 13, 23, x + 16, 55, x + 5, 61);
+    ink.fill();
+  }
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return texture;
+}
+
 export function createEffects(scene, glow) {
   const random = seededRandom(401729);
   const smoke = makePuff();
+  const flameMap = flameTexture();
   const fire = new THREE.Group();
   scene.add(fire);
   const columns = [];
@@ -38,11 +61,11 @@ export function createEffects(scene, glow) {
     const x = FIRE_TARGET.x + (i - 2.5) * 39;
     const z = FIRE_TARGET.z + Math.sin(i * 2.3) * 53;
     const y = elevation(x, z);
-    const sparks = flareSprite(fire, glow, '#ff7c25', 57, x, y + 7, z);
-    const flame = new THREE.Mesh(new THREE.ConeGeometry(9, 19, 6),
-      new THREE.MeshBasicMaterial({ color: i % 2 ? '#fb821d' : '#fcae4a' }));
-    flame.position.set(x, y + 6, z);
+    const sparks = flareSprite(fire, glow, '#ff6928', 50, x, y + 7, z);
+    const flame = new THREE.Sprite(new THREE.SpriteMaterial({ map: flameMap, depthWrite: false, toneMapped: false }));
+    flame.position.set(x, y + 10, z);
     fire.add(flame);
+    const embers = Array.from({ length: 6 }, () => flareSprite(fire, glow, '#ffb358', 3.7, x, y, z));
     const puffs = [];
     for (let j = 0; j < 13; j++) {
       const material = new THREE.SpriteMaterial({
@@ -53,7 +76,7 @@ export function createEffects(scene, glow) {
       puffs.push({ sprite, phase, drift: random() * 2 - 1, spin: random() * TAU });
       fire.add(sprite);
     }
-    columns.push({ x, y, z, sparks, puffs, flame });
+    columns.push({ x, y, z, sparks, puffs, flame, embers });
   }
   const pool = [];
   for (let i = 0; i < 144; i++) {
@@ -77,21 +100,29 @@ export function createEffects(scene, glow) {
   let wreckTime = -1;
   let wreck = null;
   let fireOut = 0;
+  let release = 0;
+  let trail = 0;
 
-  function particles(kind, x, y, z, count, spread) {
+  function particles(kind, x, y, z, count, spread, plane = null) {
     for (let i = 0; i < count; i++) {
       const p = pool[cursor++ % pool.length];
       const { sprite } = p;
       p.kind = kind;
-      p.life = p.left = (kind === 'smoke' ? 4.8 : kind === 'drop' ? 2.7 : 1.25) * (.65 + random() * .7);
+      p.life = p.left = (kind === 'smoke' ? 4.8 : kind === 'drop' ? 2.7 : kind === 'tire' ? 1.9 : 1.25) * (.65 + random() * .7);
       p.vx = (random() - .5) * spread;
       p.vz = (random() - .5) * spread;
       p.vy = kind === 'drop' ? -5 - random() * 15 : 1 + random() * spread * .47;
-      p.size = kind === 'drop' ? 5 + random() * 8 : 1.8 + random() * 5;
+      p.size = kind === 'drop' ? 1.7 + random() * 2.5 : 1.8 + random() * 5;
+      if (plane) {
+        p.vx += Math.sin(plane.yaw) * plane.speed * .46;
+        p.vz -= Math.cos(plane.yaw) * plane.speed * .46;
+      }
+      if (kind === 'trace' || kind === 'tire') p.size *= .39;
+      if (kind === 'tire') p.vy *= .28;
       sprite.position.set(x, y, z);
       sprite.material.color.set(kind === 'smoke' ? '#4d4445' : kind === 'flame' ? '#ff9a40' :
-        kind === 'dust' ? '#cab9a0' : '#d4faff');
-      sprite.material.rotation = random() * TAU;
+        kind === 'dust' ? '#cab9a0' : kind === 'trace' ? '#586071' : kind === 'tire' ? '#bac5cf' : '#e7faff');
+      sprite.material.rotation = kind === 'drop' ? (random() - .5) * .5 : random() * TAU;
       sprite.visible = true;
     }
   }
@@ -100,8 +131,10 @@ export function createEffects(scene, glow) {
     if (!event) return;
     const { x, y, z } = plane;
     if (event.type === 'touchdown' || event.type === 'rough') {
-      particles('dust', x - 1.4, y - .9, z, 10, 5);
-      particles('dust', x + 1.4, y - .9, z, 10, 5);
+      const kind = event.type === 'touchdown' && event.landing.field.strip === 'ASPHALT' ? 'tire' : 'dust';
+      for (const side of [-1.42, 1.42]) {
+        particles(kind, x + side * Math.cos(plane.yaw), y - 1.24, z + side * Math.sin(plane.yaw) - .85, 11, 5.5);
+      }
     }
     if (event.type === 'bird' || event.type === 'scrape') particles('dust', x, y, z, 13, 14);
     if (event.type !== 'crash') return;
@@ -120,13 +153,14 @@ export function createEffects(scene, glow) {
   return {
     flightEvent,
     drop(plane, success) {
-      for (let i = -6; i <= 6; i++) particles('drop', plane.x + i * 1.28, plane.y - 1.8, plane.z + Math.abs(i), 5, 21);
+      release = .76;
+      particles('drop', plane.x, plane.y - 1.55, plane.z + 1, 12, 13, plane);
       if (success) fireOut = .04;
     },
     reset() {
       wreckTime = -1;
       wreck = null;
-      fireOut = wake = 0;
+      fireOut = wake = release = trail = 0;
       for (const p of pool) {
         p.left = -1;
         p.sprite.visible = false;
@@ -138,20 +172,39 @@ export function createEffects(scene, glow) {
       fire.visible = sortie.definition.id === 'fire';
       if (fireOut) fireOut = Math.min(1, fireOut + dt * .27);
       if (fire.visible) {
-        for (const { x, y, z, sparks, puffs, flame } of columns) {
+        for (const { x, y, z, sparks, puffs, flame, embers } of columns) {
           sparks.material.opacity = (1 - fireOut) * (.69 + Math.sin(time * 11 + x) * .29);
-          flame.scale.set(1 - fireOut, (1 - fireOut) * (.66 + .36 * Math.sin(time * 7 + z)), 1 - fireOut);
-          flame.rotation.z = -.26 + Math.sin(time * 4 + x) * .16;
+          flame.scale.set(24 * (1 - fireOut), (1 - fireOut) * (24 + 7 * Math.sin(time * 7 + z)), 1);
+          flame.material.rotation = -.19 + Math.sin(time * 4 + x) * .16;
+          for (const [i, ember] of embers.entries()) {
+            const age = (time * (.45 + i * .028) + i * .17 + x * .014) % 1;
+            ember.position.set(x + age * 32 + Math.sin(i * 7 + age * 7) * 13, y + 5 + age * 59, z + Math.cos(i * 4 + age * 5) * 18);
+            ember.material.opacity = (1 - fireOut) * (1 - age);
+          }
           for (const { sprite, phase, drift, spin } of puffs) {
             const age = (phase + time * .086) % 1;
-            const breadth = 27 + age * 83;
+            const breadth = 17 + age * 81;
             sprite.position.set(x + age ** 1.4 * (144 + drift * 69), y + 11 + age * 229,
               z + age * (drift * 68 + 19));
             sprite.scale.set(breadth * 1.37, breadth, 1);
-            sprite.material.opacity = Math.sin(age * Math.PI) ** .46 * (.65 - fireOut * .51);
+            sprite.material.opacity = Math.sin(age * Math.PI) ** .46 * (.81 - fireOut * .57);
             sprite.material.rotation = spin + age * .43;
           }
         }
+      }
+      if (release > 0 && dt > 0) {
+        const last = release;
+        release -= dt;
+        if (Math.floor(last * 22) !== Math.floor(release * 22)) {
+          for (const side of [-1, 0, 1]) {
+            particles('drop', plane.x + side * 2.1, plane.y - 1.55, plane.z + 1, 3, 16, plane);
+          }
+        }
+      }
+      trail -= dt;
+      if (plane.damage >= .25 && !plane.grounded && !plane.crashed && trail <= 0 && dt > 0) {
+        trail = .058;
+        particles('trace', plane.x - Math.cos(plane.yaw) * .7, plane.y - .3, plane.z + Math.cos(plane.yaw), 2, 2);
       }
       wake -= dt;
       if (sortie.definition.id === 'fire' && sortie.plane.agl < 12 && !plane.gear && !plane.grounded && wake <= 0) {
@@ -180,8 +233,11 @@ export function createEffects(scene, glow) {
         p.sprite.position.y += p.vy * dt;
         p.sprite.position.z += p.vz * dt;
         if (p.kind === 'drop') p.vy -= 5.8 * dt;
-        p.sprite.scale.setScalar(p.size * (1 + age * (p.kind === 'smoke' ? 7 : 3)));
-        p.sprite.material.opacity = (1 - age) * (p.kind === 'smoke' ? .68 : .76);
+        const size = p.size * (1 + age * (p.kind === 'smoke' ? 7 : 3));
+        if (p.kind === 'drop') p.sprite.scale.set(size, size * 1.85, 1);
+        else if (p.kind === 'tire') p.sprite.scale.set(size * 1.38, size * .65, 1);
+        else p.sprite.scale.setScalar(size);
+        p.sprite.material.opacity = (1 - age) * (p.kind === 'drop' ? .94 : p.kind === 'trace' ? .50 : .76);
       }
       for (const p of debris) {
         if (!p.shard.visible) continue;

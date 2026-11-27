@@ -7,9 +7,7 @@ export function createDispatch(charts, launch) {
   let records = {};
   try {
     records = JSON.parse(localStorage.getItem('halcyon-reach.flight-records') || '{}') ?? {};
-  } catch {
-    records = {};
-  }
+  } catch {}
   const buttons = new Map();
   for (const mission of MISSIONS) {
     const button = document.createElement('button');
@@ -52,14 +50,11 @@ export function createDispatch(charts, launch) {
     select,
     open() { select(selected); },
     selected() { return selected; },
+    medal(id) { return records[id]?.medal ?? 'OPEN'; },
     save(id, report) {
       if (report.crash || (records[id]?.score ?? -1) >= report.score) return;
       records[id] = { medal: report.medal, score: report.score };
-      try {
-        localStorage.setItem('halcyon-reach.flight-records', JSON.stringify(records));
-      } catch {
-        // The running page still remembers medals when storage is unavailable.
-      }
+      try { localStorage.setItem('halcyon-reach.flight-records', JSON.stringify(records)); } catch {}
     }
   };
 }

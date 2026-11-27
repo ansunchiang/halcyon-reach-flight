@@ -12,70 +12,13 @@ function panelMetal(g, x, y, w, h) {
   light.addColorStop(0, '#f4bd631c');
   light.addColorStop(1, '#00000000');
   plate(g, x + 2, y + 2, w - 4, h - 4, 9, light);
-  g.beginPath();
-  for (const column of [x + 10, x + w - 11]) {
-    for (const row of [y + 10, y + h - 10]) {
-      g.moveTo(column + 2.5, row);
-      g.arc(column, row, 2.5, 0, Math.PI * 2);
-    }
-  }
   g.fillStyle = '#93917a';
+  g.beginPath();
+  for (const dx of [10, w - 11]) for (const dy of [10, h - 10]) {
+    g.moveTo(x + dx + 2.5, y + dy);
+    g.arc(x + dx, y + dy, 2.5, 0, Math.PI * 2);
+  }
   g.fill();
-}
-
-function cockpitFrame(g, w, h, night) {
-  const rail = g.createLinearGradient(0, 0, 150, 0);
-  rail.addColorStop(0, '#131e26');
-  rail.addColorStop(.65, '#344247');
-  rail.addColorStop(1, '#132227');
-  g.strokeStyle = rail;
-  g.lineWidth = 25;
-  g.beginPath();
-  g.moveTo(-23, h * .68);
-  g.lineTo(w * .105, h * .085);
-  g.lineTo(w * .265, -16);
-  g.moveTo(w + 23, h * .68);
-  g.lineTo(w * .894, h * .085);
-  g.lineTo(w * .735, -16);
-  g.stroke();
-  g.strokeStyle = '#9aa39c76';
-  g.lineWidth = 2;
-  g.beginPath();
-  g.moveTo(-7, h * .66);
-  g.lineTo(w * .111, h * .092);
-  g.lineTo(w * .267, -7);
-  g.moveTo(w + 7, h * .66);
-  g.lineTo(w * .889, h * .092);
-  g.lineTo(w * .733, -7);
-  g.stroke();
-  const hood = g.createLinearGradient(0, h * .66, 0, h);
-  hood.addColorStop(0, night ? '#3a454d' : '#5e7070');
-  hood.addColorStop(.15, '#182830');
-  hood.addColorStop(.55, '#101f26');
-  hood.addColorStop(1, '#0c151d');
-  g.beginPath();
-  g.moveTo(0, h);
-  g.lineTo(0, h * .775);
-  g.bezierCurveTo(w * .16, h * .77, w * .23, h * .669, w * .405, h * .67);
-  g.lineTo(w * .595, h * .67);
-  g.bezierCurveTo(w * .77, h * .669, w * .84, h * .77, w, h * .775);
-  g.lineTo(w, h);
-  g.closePath();
-  g.fillStyle = hood;
-  g.fill();
-  g.strokeStyle = '#89978a85';
-  g.lineWidth = 2;
-  g.stroke();
-  g.strokeStyle = '#e5bf8644';
-  g.lineWidth = 1;
-  g.setLineDash([2, 5]);
-  g.beginPath();
-  g.moveTo(w * .16, h * .758);
-  g.quadraticCurveTo(w * .30, h * .688, w * .405, h * .684);
-  g.lineTo(w * .595, h * .684);
-  g.quadraticCurveTo(w * .70, h * .688, w * .84, h * .758);
-  g.stroke();
-  g.setLineDash([]);
 }
 
 export function drawInstrumentPanel(g, w, h, plane, cockpit, night) {
@@ -83,44 +26,38 @@ export function drawInstrumentPanel(g, w, h, plane, cockpit, night) {
   const feet = Math.round(plane.y * 3.28084);
   const course = heading(plane.yaw);
   const mph = (at, r) => drawGauge(g, at, r, {
-    value: speed, min: 0, max: 160, ticks: 8, label: 'AIRSPEED', unit: 'KNOTS', digits: speed, night
+    value: speed, min: 0, max: 160, ticks: 4, label: 'IAS', unit: 'KT', digits: speed, night
   });
   const altitude = (at, r) => drawGauge(g, at, r, {
-    value: feet % 1000, min: 0, max: 1000, ticks: 5, label: 'ALTIMETER',
-    unit: 'FEET', digits: feet, night, trim: n => Math.round(n / 100), secondary: Math.min(1, feet / 10000)
+    value: feet % 1000, min: 0, max: 1000, ticks: 5, label: 'ALT',
+    unit: 'FT', digits: feet, night, trim: n => Math.round(n / 100), secondary: Math.min(1, feet / 10000)
   });
   const vertical = (at, r) => drawGauge(g, at, r, {
-    value: plane.vy, min: -10, max: 10, ticks: 4, label: 'VERT SPEED', unit: 'M/S',
+    value: plane.vy, min: -10, max: 10, ticks: 4, label: 'VSI', unit: 'M/S',
     digits: (plane.vy >= 0 ? '+' : '−') + Math.abs(plane.vy).toFixed(1), night
   });
   if (!cockpit) {
     const wide = w > 970;
-    const width = wide ? 475 : 346;
-    const base = h - 155;
+    const width = wide ? 456 : 334;
+    const base = h - 145;
     const mid = w / 2;
-    panelMetal(g, mid - width / 2, base, width, 121);
-    dialText(g, 'PETREL SK-2  /  FLIGHT INSTRUMENTS', mid, base + 14, '#c9cdb1', 9.7);
-    if (wide) {
-      mph([mid - 164, base + 68], 43);
-      drawAttitude(g, [mid - 53, base + 68], 43, plane.pitch, plane.roll, night);
-      altitude([mid + 55, base + 68], 43);
-      drawCompass(g, [mid + 163, base + 68], 43, plane.yaw, night, course);
-    } else {
-      mph([mid - 107, base + 68], 40);
-      drawAttitude(g, [mid, base + 68], 40, plane.pitch, plane.roll, night);
-      altitude([mid + 107, base + 68], 40);
-    }
+    const r = wide ? 43 : 40;
+    const middle = mid - (wide ? 53 : 0);
+    const y = base + 55;
+    g.globalAlpha = .94;
+    panelMetal(g, mid - width / 2, base, width, 109);
+    g.globalAlpha = 1;
+    mph([middle - 107, y], r);
+    drawAttitude(g, [middle, y], r, plane.pitch, plane.roll, night);
+    altitude([middle + 107, y], r);
+    if (wide) drawCompass(g, [middle + 214, y], r, plane.yaw, night, course);
     return;
   }
-  cockpitFrame(g, w, h, night);
-  const size = Math.min(67, (w - 420) / 11.8, h * .091);
-  const r = Math.max(37, size);
+  const r = 69;
   const mid = w / 2;
-  const base = h - 2.45 * r;
-  const spread = r * 2.19;
-  const center = base + r + 6;
-  const width = r * 11.45;
-  panelMetal(g, mid - width / 2, base - 12, width, r * 2.18 + 58);
+  const spread = r * 2.39;
+  const center = 91;
+  panelMetal(g, 1, 1, w - 2, h - 2);
   const ins = offset => [mid + offset * spread, center];
   const angle = plane.roll;
   mph(ins(-2), r);
